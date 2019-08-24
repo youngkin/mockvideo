@@ -1,0 +1,21 @@
+language: go
+
+go:
+  - 1.12.x
+
+os:
+  - linux
+
+env:
+  - GO111MODULE=on 
+
+before_install:
+  - go get -v golang.org/x/lint/golint
+
+script:
+  - go test -v  ./...
+
+notifications:
+  email:
+    on_success: always
+    on_failure: always

@@ -5,15 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/youngkin/mockvideo/cmd/customerd/handlers"
 )
-
-type Customer struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-}
 
 func main() {
 	fmt.Printf("Hello, %s\n", "WORLD!")
@@ -29,27 +25,14 @@ func main() {
 	// executing
 	defer db.Close()
 
-	results, err := db.Query("SELECT id, name FROM customer")
+	customersHandler, err := handlers.New(db)
 	if err != nil {
-		panic(err.Error()) // proper error handling instead of panic in your app
+		log.Printf("Error initializing customers HTTP handler, error: %s\n", err)
+		os.Exit(1)
 	}
-
-	for results.Next() {
-		var customer Customer
-		// for each row, scan the result into our tag composite object
-		err = results.Scan(&customer.ID, &customer.Name)
-		if err != nil {
-			panic(err.Error()) // proper error handling instead of panic in your app
-		}
-		// and then print out the tag's Name attribute
-		log.Printf("ID: %d, Name: %s\n", customer.ID, customer.Name)
-	}
+	healthHandler := http.HandlerFunc(handlers.HealthFunc)
 
 	mux := http.NewServeMux()
-	// 't' and 'h' below experiment with 'HandlerOptions' defined as part of the 'NewHandler'
-	// 'story.NewHandler(s)' will use defaults for the template and path resolution
-	customersHandler := http.HandlerFunc(handlers.CustomersFunc)
-	healthHandler := http.HandlerFunc(handlers.HealthFunc)
 
 	mux.Handle("/customers", customersHandler)
 	mux.Handle("/health", healthHandler)
