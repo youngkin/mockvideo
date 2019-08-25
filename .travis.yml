@@ -1,11 +1,13 @@
 language: go
 
+# go version
 go:
   - 1.12.x
 
 os:
   - linux
 
+# Enable use of Go Modules
 env:
   - GO111MODULE=on 
 
@@ -16,6 +18,7 @@ script:
   - go test -v  ./...
 
 notifications:
+  # Get email notifications on builds (sent to email associated with Travis account)
   email:
     on_success: always
     on_failure: always

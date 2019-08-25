@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,8 +12,23 @@ import (
 	"github.com/youngkin/mockvideo/cmd/customerd/handlers"
 )
 
+// TODO:
+//	1.	TODO: HTTP connection config (e.g., timeouts)
+//	2.	TODO: Don't panic
+//	3.	TODO: Use logging levels
+//	4.	TODO: Config parms (configMap?)
+//	5.	TODO: Prometheus
+//	6.	TODO: Kube logging
+//	7.	TODO: ELK stack for logging
+//	8.	TODO: Graphana for Prometheus
+//	9.	TODO: Helm/Kube deployment (with P9S support)
+//	10.	TODO: Create build system that will compile and create docker image
+//	11.	TODO: Use https
+//	9.	DONE: Travis CI
+
 func main() {
-	fmt.Printf("Hello, %s\n", "WORLD!")
+	port := flag.Int("port", 5999, "the port to start the customer service on")
+	flag.Parse()
 
 	db, err := sql.Open("mysql", "admin:2girls1cat@tcp(10.0.0.100:3306)/mockvideo")
 
@@ -35,8 +51,8 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.Handle("/customers", customersHandler)
-	mux.Handle("/health", healthHandler)
+	mux.Handle("/custdhealth", healthHandler)
 
-	fmt.Printf("Starting server on port: %d\n", 9090)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", 9090), mux))
+	log.Printf("customerd starting on port %d", *port)
+	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), mux))
 }
