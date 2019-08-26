@@ -6,7 +6,7 @@ replicaCount: 4
 
 image:
   repository: ryoungkin/customerd
-  tag: 0.0.2
+  tag: 0.0.3
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -28,8 +28,8 @@ ingress:
   enabled: true
   annotations: {}
   hosts:
-    - host: 
-      paths: [/customers,/custdhealth]
+    - host: custd.kube
+      paths: [/customers,/custdhealth,/metrics]
 
   tls: []
   #  - secretName: chart-example-tls

@@ -10,6 +10,8 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/youngkin/mockvideo/cmd/customerd/handlers"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // TODO:
@@ -52,6 +54,7 @@ func main() {
 
 	mux.Handle("/customers", customersHandler)
 	mux.Handle("/custdhealth", healthHandler)
+	mux.Handle("/metrics", promhttp.Handler())
 
 	log.Printf("customerd starting on port %d", *port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), mux))
