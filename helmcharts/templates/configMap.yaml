@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: custd-server-conf
+  labels:
+{{ include "mockvideo.labels" . | indent 4 }}
+data:
+  port: "{{ .Values.customerd.port }}"

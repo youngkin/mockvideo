@@ -36,7 +36,8 @@ func main() {
 
 	// if there is an error opening the connection, handle it
 	if err != nil {
-		panic(err.Error())
+		log.Printf("Error opening DB connection, error: %s\n", err)
+		os.Exit(1)
 	}
 
 	// defer the close till after the main function has finished
@@ -45,8 +46,6 @@ func main() {
 
 	customersHandler, err := handlers.New(db)
 	if err != nil {
-		log.Printf("Error initializing customers HTTP handler, error: %s\n", err)
-		os.Exit(1)
 	}
 	healthHandler := http.HandlerFunc(handlers.HealthFunc)
 

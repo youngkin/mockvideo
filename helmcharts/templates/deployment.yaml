@@ -32,6 +32,9 @@ spec:
             - name: http
               containerPort: 5000
               protocol: TCP
+          volumeMounts:
+            - name: custd-config-volume
+              mountPath: /opt/mockvideo/custd
           livenessProbe:
             httpGet:
               path: /custdhealth
@@ -42,6 +45,11 @@ spec:
               port: http
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: custd-config-volume
+          configMap:
+            defaultMode: 420
+            name: custd-server-conf
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

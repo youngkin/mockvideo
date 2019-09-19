@@ -6,19 +6,21 @@ replicaCount: 4
 
 image:
   repository: ryoungkin/customerd
-  tag: 0.0.3
+  tag: 0.0.6
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""
 fullnameOverride: ""
 
-annotations: {}
-  # If want to use these settings, uncomment, override values as necessary, and remove the curly-braces above
-#  prometheusIOScrape: "true",
-#  prometheusIOPort: "5000",
-#  prometheusIOPath: "/metrics"
-
+# If want to use these settings, uncomment, override values as necessary, and remove the curly-braces on 'annotations'
+# Use the below commented-out 'annotations' instead of the uncommented one
+#annotations: {}
+annotations: {
+  prometheusIOScrape: "true",
+  prometheusIOPort: "5000",
+  prometheusIOPath: "/metrics"
+}
 
 service:
   type: ClusterIP
@@ -53,3 +55,6 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+customerd:
+  port: "5999"
