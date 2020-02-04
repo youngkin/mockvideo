@@ -16,7 +16,7 @@ import (
 
 // TODO:
 //	1.	TODO: HTTP connection config (e.g., timeouts)
-//	2.	TODO: Don't panic
+//	2.	TODO: Don't panic, add error handling
 //	3.	TODO: Use logging levels
 //	4.	TODO: Config parms (configMap?)
 //	5.	TODO: Prometheus

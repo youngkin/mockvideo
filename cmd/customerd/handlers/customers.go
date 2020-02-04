@@ -42,6 +42,19 @@ func init() {
 
 // ServeHTTP handles the request
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.handleGet(w, r)
+	case "POST":
+		h.handlePost(w, r)
+	default:
+		fmt.Fprintf(w, "Sorry, only GET and POST methods are supported.")
+		w.WriteHeader(http.StatusTeapot)
+	}
+
+}
+
+func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	results, err := h.db.Query("SELECT id, name FROM customer")
@@ -52,16 +65,28 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	for results.Next() {
 		var customer customers.Customer
 		// for each row, scan the result into our tag composite object
-		err = results.Scan(&customer.ID, &customer.Name)
+		err = results.Scan(&customer.ID,
+			&customer.Name,
+			&customer.StreetAddress,
+			&customer.City,
+			&customer.State,
+			&customer.Country)
 		if err != nil {
 			panic(err.Error()) // proper error handling instead of panic in your app
 		}
 		// and then print out the tag's Name attribute
-		fmt.Fprintf(w, "ID: %d, Name: %s\n", customer.ID, customer.Name)
+		fmt.Fprintf(w, "ID: %d, Name: %s, Address: %s, City: %s, State: %s, Country: %s\n",
+			customer.ID, customer.Name, customer.State, customer.City, customer.State, customer.Country)
+		w.WriteHeader(http.StatusFound)
 		log.Printf("ID: %d, Name: %s\n", customer.ID, customer.Name)
 	}
 
 	customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusFound)).Observe(float64(time.Since(start)) / float64(time.Second))
+}
+
+func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Not implemented")
+	w.WriteHeader(http.StatusTeapot)
 }
 
 // New returns a *http.Handler configured with a database connection
