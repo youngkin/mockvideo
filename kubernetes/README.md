@@ -1,0 +1,1 @@
+None of the files in this directory are managed via helm
