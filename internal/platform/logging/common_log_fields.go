@@ -7,6 +7,7 @@ const (
 	Port           string = "Port"
 	Error          string = "Error"
 	LogLevel       string = "LogLevel"
+	HostName       string = "HostName"
 )
 
 const (

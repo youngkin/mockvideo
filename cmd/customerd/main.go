@@ -34,29 +34,32 @@ import (
 
 func init() {
 	// Log as JSON instead of the default ASCII formatter.
-	log.SetFormatter(&log.JSONFormatter{})
+	log.SetFormatter(&log.TextFormatter{})
 
 	// Output to stdout instead of the default stderr
 	// Can be any io.Writer, see below for File example
 	log.SetOutput(os.Stdout)
 
-	// Only log the INFO severity or above.
-	log.SetLevel(log.InfoLevel)
+	// Only log the DEBUG severity or above.
+	log.SetLevel(log.DebugLevel)
 }
 
 func main() {
-	log.WithFields(log.Fields{
+	hostName, _ := os.Hostname()
+	logger := log.WithFields(log.Fields{
 		logging.Application: logging.Customer,
+		logging.HostName:    hostName,
 	})
-	// TODO: REMOVE port := flag.Int("port", 5999, "the port to start the customer service on")
+
+	//port := flag.Int("port", 5999, "the port to start the customer service on")
 	configFileName := flag.String("configFile",
-		"/opt/mockvideo/custd",
+		"/opt/mockvideo/custd/custd",
 		"specifies the location of the custd service configuration")
 	flag.Parse()
 
 	configFile, err := os.Open(*configFileName)
 	if err != nil {
-		log.WithFields(log.Fields{
+		logger.WithFields(log.Fields{
 			logging.ConfigFileName: *configFileName,
 			logging.Error:          err.Error(),
 		}).Fatal("Error opening config file")
@@ -64,7 +67,7 @@ func main() {
 	}
 	config, err := config.LoadConfig(configFile)
 	if err != nil {
-		log.WithFields(log.Fields{
+		logger.WithFields(log.Fields{
 			logging.ConfigFileName: *configFileName,
 			logging.Error:          err.Error(),
 		}).Fatal("Error loading config file")
@@ -73,12 +76,12 @@ func main() {
 
 	loglevel, ok := config["logLevel"]
 	if !ok {
-		log.Warn("Log level unavailable, defaulting to INFO")
+		logger.Warn("Log level unavailable, defaulting to DEBUG")
 	}
 	if ok {
 		level, err := strconv.Atoi(loglevel)
 		if err != nil {
-			log.Warnf("Log level <%s> invalid, defaulting to INFO", loglevel)
+			logger.Warnf("Log level <%s> invalid, defaulting to DEBUG", loglevel)
 		} else {
 			log.SetLevel(log.Level(level))
 		}
@@ -88,10 +91,9 @@ func main() {
 	db, err := sql.Open("mysql", "admin:2girls1cat@tcp(10.0.0.100:3306)/mockvideo")
 
 	if err != nil {
-		log.WithFields(log.Fields{
+		logger.WithFields(log.Fields{
 			logging.Error: err.Error(),
 		}).Fatal("Error opening DB connection")
-		os.Exit(errors.BadDBConnectionExit)
 	}
 
 	// defer the close till after the main function has finished
@@ -112,14 +114,17 @@ func main() {
 
 	port, ok := config["port"]
 	if !ok {
-		log.Printf("port configuration unavailable (config[\"port\"])\n")
-		os.Exit(errors.UnableToGetPortConfigExit)
+		logger.Printf("port configuration unavailable (config[port]), defaulting to 5000")
+		port = "5000"
+		//os.Exit(errors.UnableToGetPortConfigExit)
 	}
 
-	log.WithFields(log.Fields{
+	port = ":" + port
+
+	logger.WithFields(log.Fields{
+		logging.ConfigFileName: *configFileName,
 		logging.Port:           port,
-		logging.ConfigFileName: configFileName,
-		logging.LogLevel:       "TODO, where to get this from", //TODO
+		logging.LogLevel:       log.GetLevel().String(),
 	}).Info("customerd service starting")
-	log.Fatal(http.ListenAndServe(port, mux))
+	logger.Fatal(http.ListenAndServe(port, mux))
 }

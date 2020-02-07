@@ -7,8 +7,8 @@ metadata:
 data:
   port: "{{ .Values.testValue.port }}"
   custd: |
-    port="{{ .Values.customerd.port }}"
-    logLevel="{{ .Values.customerd.logLevel }}" 
+    port={{ .Values.customerd.port }}
+    logLevel={{ .Values.customerd.logLevel }}
   #someValueArray:
   #  - val1
   #  - val2
