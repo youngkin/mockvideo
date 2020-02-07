@@ -4,13 +4,15 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
+	"github.com/youngkin/mockvideo/cmd/customerd/logging"
 	"github.com/youngkin/mockvideo/internal/customers"
+	"github.com/youngkin/mockvideo/internal/platform/constants"
 )
 
 type handler struct {
@@ -26,12 +28,16 @@ var (
 		// Buckets:   prometheus.ExponentialBuckets(0.005, 1.1, 40),
 		Buckets: prometheus.LinearBuckets(0.001, .004, 50),
 	}, []string{"code"})
+
+	logger *log.Entry
 )
 
 func init() {
 	prometheus.MustRegister(customerRqstDur)
 	// Add Go module build info.
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
+
+	logger = logging.GetLogger()
 }
 
 // TODO:
@@ -55,16 +61,25 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
+	logger.WithFields(log.Fields{
+		constants.Method:      r.Method,
+		constants.URLHostName: r.URL.Host,
+		constants.Path:        r.URL.Path,
+		constants.RemoteAddr:  r.RemoteAddr,
+	}).Info("HTTP request received")
 	start := time.Now()
 
-	results, err := h.db.Query("SELECT id, name FROM customer")
+	results, err := h.db.Query("SELECT id, name, streetAddress, city, state, country FROM customer")
 	if err != nil {
-		panic(err.Error()) // proper error handling instead of panic in your app
+		logger.WithFields(log.Fields{
+			constants.AppError:    constants.DBQueryError,
+			constants.ErrorDetail: err.Error(),
+		}).Error("Error querying DB")
 	}
 
 	for results.Next() {
 		var customer customers.Customer
-		// for each row, scan the result into our tag composite object
+
 		err = results.Scan(&customer.ID,
 			&customer.Name,
 			&customer.StreetAddress,
@@ -72,13 +87,17 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 			&customer.State,
 			&customer.Country)
 		if err != nil {
-			panic(err.Error()) // proper error handling instead of panic in your app
+			logger.WithFields(log.Fields{
+				constants.AppError:    constants.DBRowScanError,
+				constants.ErrorDetail: err.Error(),
+			}).Error("Error scanning resultset")
+			w.WriteHeader(http.StatusInternalServerError)
+			customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+			return
 		}
-		// and then print out the tag's Name attribute
+
 		fmt.Fprintf(w, "ID: %d, Name: %s, Address: %s, City: %s, State: %s, Country: %s\n",
 			customer.ID, customer.Name, customer.State, customer.City, customer.State, customer.Country)
-		w.WriteHeader(http.StatusFound)
-		log.Printf("ID: %d, Name: %s\n", customer.ID, customer.Name)
 	}
 
 	customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusFound)).Observe(float64(time.Since(start)) / float64(time.Second))

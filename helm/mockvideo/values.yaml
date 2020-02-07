@@ -6,7 +6,7 @@ replicaCount: 4
 
 image:
   repository: ryoungkin/customerd
-  tag: 0.0.23
+  tag: 0.0.26
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -63,4 +63,7 @@ customerd:
   port: 5000
   # 0=PANIC, 1=FATAL, 2=ERROR, 3=WARN, 4=INFO, 5=DEBUG, 6=TRACE
   logLevel: 4
+  dbHost: 10.0.0.100
+  dbName: mockvideo
+  dbPort: 3306
 

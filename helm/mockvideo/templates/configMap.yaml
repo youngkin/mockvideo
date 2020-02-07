@@ -9,6 +9,9 @@ data:
   custd: |
     port={{ .Values.customerd.port }}
     logLevel={{ .Values.customerd.logLevel }}
+    dbHost={{ .Values.customerd.dbHost }}
+    dbPort={{ .Values.customerd.dbPort }}
+    dbName={{ .Values.customerd.dbName }}
   #someValueArray:
   #  - val1
   #  - val2
