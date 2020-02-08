@@ -41,10 +41,7 @@ func init() {
 }
 
 // TODO:
-//	1.	Don't panic
-//	2.	Wrap in a function that will return an error
-//	3.	Use logging levels
-//	4.	Add context deadline to DB requests
+//	1.	Add context deadline to DB requests
 
 // ServeHTTP handles the request
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

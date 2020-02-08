@@ -67,7 +67,7 @@ func main() {
 	//
 	loglevel, ok := config["logLevel"]
 	if !ok {
-		logger.Warn("Log level unavailable, defaulting to %s", log.GetLevel().String())
+		logger.Warnf("Log level unavailable, defaulting to %s", log.GetLevel().String())
 	} else {
 		level, err := strconv.Atoi(loglevel)
 		if err != nil {
