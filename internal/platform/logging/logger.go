@@ -19,7 +19,10 @@ func init() {
 
 	// Only log the DEBUG severity or above.
 	log.SetLevel(log.InfoLevel)
-	hostName, _ := os.Hostname()
+	hostName, err := os.Hostname()
+	if err != nil {
+		hostName = "unknown"
+	}
 
 	logger = log.WithFields(log.Fields{
 		constants.Application: constants.Customer,

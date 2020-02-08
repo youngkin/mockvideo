@@ -10,9 +10,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/cmd/customerd/logging"
 	"github.com/youngkin/mockvideo/internal/customers"
 	"github.com/youngkin/mockvideo/internal/platform/constants"
+	"github.com/youngkin/mockvideo/internal/platform/logging"
 )
 
 type handler struct {
@@ -37,7 +37,7 @@ func init() {
 	// Add Go module build info.
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 
-	logger = logging.GetLogger()
+	logger = logging.GetLogger().WithField(constants.Application, constants.Customer)
 }
 
 // TODO:

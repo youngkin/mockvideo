@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/youngkin/mockvideo/cmd/customerd/handlers"
-	"github.com/youngkin/mockvideo/cmd/customerd/logging"
 	"github.com/youngkin/mockvideo/internal/platform/config"
 	"github.com/youngkin/mockvideo/internal/platform/constants"
+	"github.com/youngkin/mockvideo/internal/platform/logging"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -40,7 +40,7 @@ func main() {
 		"specifies the location of the custd service configuration")
 	flag.Parse()
 
-	logger := logging.GetLogger()
+	logger := logging.GetLogger().WithField(constants.Application, constants.Customer)
 
 	//
 	// Get configuration
@@ -62,9 +62,6 @@ func main() {
 		}).Fatal("Error loading config file")
 	}
 
-	//
-	// Set configuration
-	//
 	loglevel, ok := config["logLevel"]
 	if !ok {
 		logger.Warnf("Log level unavailable, defaulting to %s", log.GetLevel().String())
@@ -76,13 +73,6 @@ func main() {
 			log.SetLevel(log.Level(level))
 		}
 	}
-
-	port, ok := config["port"]
-	if !ok {
-		logger.Info("port configuration unavailable (config[port]), defaulting to 5000")
-		port = "5000"
-	}
-	port = ":" + port
 
 	//
 	// Setup DB connection
@@ -121,6 +111,13 @@ func main() {
 	mux.Handle("/customers", customersHandler)
 	mux.Handle("/custdhealth", healthHandler)
 	mux.Handle("/metrics", promhttp.Handler())
+
+	port, ok := config["port"]
+	if !ok {
+		logger.Info("port configuration unavailable (config[port]), defaulting to 5000")
+		port = "5000"
+	}
+	port = ":" + port
 
 	logger.WithFields(log.Fields{
 		constants.ConfigFileName: *configFileName,
