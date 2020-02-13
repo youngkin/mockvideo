@@ -20,13 +20,14 @@ import (
 )
 
 // TODO:
+//	0.	TODO: Rethink errors, see TODO in errors.go
 //	1.	TODO: HTTP connection config (e.g., timeouts)
 //  1.  TODO: DB config, use secrets for user name and password
-//	4.	TODO: Config parms (configMap?), monitor for changes restarting if necessary
 //	6.	TODO: Kube logging
 //	7.	TODO: ELK stack for logging
 //	10.	TODO: Create build system that will compile and create docker image
 //	11.	TODO: Use https
+//	4.	TODO: Config parms (configMap?), monitor for changes restarting if necessary
 //	5.	ONGOING: Prometheus
 //	2.	DONE: Don't panic, add error handling
 //	3.	DONE: Use logging levels
@@ -36,9 +37,14 @@ import (
 
 func main() {
 	configFileName := flag.String("configFile",
-		"/opt/mockvideo/custd/custd",
+		"/opt/mockvideo/custd/config/config",
 		"specifies the location of the custd service configuration")
-	flag.Parse()
+
+	// TODO: Get secrets
+	// secretFileName := flag.String("configFile",
+	// 	"/opt/mockvideo/custd/secret",
+	// 	"specifies the location of the custd secrets")
+	// flag.Parse()
 
 	logger := logging.GetLogger().WithField(constants.Application, constants.Customer)
 
@@ -62,6 +68,16 @@ func main() {
 		}).Fatal("Error loading config file")
 	}
 
+	// TODO: Get secrets
+	// secrets, err := config.LoadConfig(*secretFileName)
+	// if err != nil {
+	// 	logger.WithFields(log.Fields{
+	// 		constants.ConfigFileName: *secretFileName,
+	// 		constants.AppError:       constants.UnableToLoadConfig,
+	// 		constants.ErrorDetail:    err.Error(),
+	// 	}).Fatal("Error loading secrets file")
+	// }
+
 	loglevel, ok := config["logLevel"]
 	if !ok {
 		logger.Warnf("Log level unavailable, defaulting to %s", log.GetLevel().String())
@@ -77,15 +93,18 @@ func main() {
 	//
 	// Setup DB connection
 	//
-	connStr, err := getDBConnectionStr(config)
-	if err != nil {
-		logger.WithFields(log.Fields{
-			constants.AppError:    constants.UnableToGetDBConnStr,
-			constants.ErrorDetail: err.Error(),
-		}).Fatal("Error constructing DB connection string")
-	}
+	// TODO: Re-enable connStr
+	// connStr, err := getDBConnectionStr(config)
+	// if err != nil {
+	// 	logger.WithFields(log.Fields{
+	// 		constants.AppError:    constants.UnableToGetDBConnStr,
+	// 		constants.ErrorDetail: err.Error(),
+	// 	}).Fatal("Error constructing DB connection string")
+	// }
 
-	db, err := sql.Open("mysql", connStr)
+	// TODO: Re-enable connStr
+	// db, err := sql.Open("mysql", connStr)
+	db, err := sql.Open("mysql", "admin:2girls1cat@tcp(10.0.0.100:3306)/mockvideo")
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.AppError:    constants.UnableToOpenDBConn,
@@ -131,9 +150,17 @@ func getDBConnectionStr(config map[string]string) (string, error) {
 	// E.g., "username:userpassword@tcp(10.0.0.100:3306)/mockvideo"
 	var sb strings.Builder
 
-	sb.WriteString("admin") // TODO: Replace with secret
+	dbuser, ok := config["dbuser"]
+	if !ok {
+		return "", errors.NotAssignedf("DB user name, identified by 'dbuser', not found in secrets")
+	}
+	sb.WriteString(dbuser)
 	sb.WriteString(":")
-	sb.WriteString("2girls1cat") // TODO: Replace with secret
+	dbpassword, ok := config["dbpassword"]
+	if !ok {
+		return "", errors.NotAssignedf("DB user password, identified by 'dbpassword', not found in secrets")
+	}
+	sb.WriteString(dbpassword) // TODO: Replace with secret
 	sb.WriteString("@tcp(")
 
 	dbHost, ok := config["dbHost"]

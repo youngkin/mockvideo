@@ -41,7 +41,8 @@ func init() {
 }
 
 // TODO:
-//	1.	Add context deadline to DB requests
+//	1.	Write unit test
+//  2.  Add context deadline to DB requests
 
 // ServeHTTP handles the request
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
