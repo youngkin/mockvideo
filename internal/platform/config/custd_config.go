@@ -3,7 +3,11 @@ package config
 import (
 	"bufio"
 	"io"
+	"io/ioutil"
+	"path/filepath"
 	"strings"
+
+	"github.com/juju/errors"
 )
 
 // LoadConfig loads the custd service configuration and returns a map of key/value pairs or an error
@@ -19,4 +23,22 @@ func LoadConfig(configData io.Reader) (map[string]string, error) {
 	}
 
 	return config, nil
+}
+
+// LoadSecrets loads the custd service's secrets and returns a map of key/value pairs or an error
+func LoadSecrets(secretsDir string) (map[string]string, error) {
+	secrets := make(map[string]string)
+
+	secretFiles := []string{"dbuser", "dbpassword"}
+
+	for _, fileName := range secretFiles {
+		content, err := ioutil.ReadFile(filepath.Join(secretsDir, fileName))
+		if err != nil {
+			return nil, errors.Annotatef(err, "Secrets file %s could not be read", filepath.Join(secretsDir, fileName))
+		}
+
+		secrets[fileName] = string(content)
+	}
+
+	return secrets, nil
 }

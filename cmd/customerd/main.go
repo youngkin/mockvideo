@@ -21,8 +21,8 @@ import (
 
 // TODO:
 //	0.	TODO: Rethink errors, see TODO in errors.go
-//	1.	TODO: HTTP connection config (e.g., timeouts)
-//  1.  TODO: DB config, use secrets for user name and password
+//	1.	TODO: HTTP connection configs (e.g., timeouts)
+//  1.  TODO: DB configs, use secrets for user name and password
 //	6.	TODO: Kube logging
 //	7.	TODO: ELK stack for logging
 //	10.	TODO: Create build system that will compile and create docker image
@@ -40,11 +40,10 @@ func main() {
 		"/opt/mockvideo/custd/config/config",
 		"specifies the location of the custd service configuration")
 
-	// TODO: Get secrets
-	// secretFileName := flag.String("configFile",
-	// 	"/opt/mockvideo/custd/secret",
-	// 	"specifies the location of the custd secrets")
-	// flag.Parse()
+	secretsDir := flag.String("secretsDir",
+		"/opt/mockvideo/custd/secrets",
+		"specifies the location of the custd secrets")
+	flag.Parse()
 
 	logger := logging.GetLogger().WithField(constants.Application, constants.Customer)
 
@@ -59,26 +58,25 @@ func main() {
 			constants.ErrorDetail:    err.Error(),
 		}).Fatal("Error opening config file")
 	}
-	config, err := config.LoadConfig(configFile)
+	configs, err := config.LoadConfig(configFile)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ConfigFileName: *configFileName,
 			constants.AppError:       constants.UnableToLoadConfig,
 			constants.ErrorDetail:    err.Error(),
-		}).Fatal("Error loading config file")
+		}).Fatal("Error loading config data")
 	}
 
-	// TODO: Get secrets
-	// secrets, err := config.LoadConfig(*secretFileName)
-	// if err != nil {
-	// 	logger.WithFields(log.Fields{
-	// 		constants.ConfigFileName: *secretFileName,
-	// 		constants.AppError:       constants.UnableToLoadConfig,
-	// 		constants.ErrorDetail:    err.Error(),
-	// 	}).Fatal("Error loading secrets file")
-	// }
+	secrets, err := config.LoadSecrets(*secretsDir)
+	if err != nil {
+		logger.WithFields(log.Fields{
+			constants.ConfigFileName: *secretsDir,
+			constants.AppError:       constants.UnableToLoadSecrets,
+			constants.ErrorDetail:    err.Error(),
+		}).Fatal("Error loading secrets data")
+	}
 
-	loglevel, ok := config["logLevel"]
+	loglevel, ok := configs["logLevel"]
 	if !ok {
 		logger.Warnf("Log level unavailable, defaulting to %s", log.GetLevel().String())
 	} else {
@@ -93,18 +91,15 @@ func main() {
 	//
 	// Setup DB connection
 	//
-	// TODO: Re-enable connStr
-	// connStr, err := getDBConnectionStr(config)
-	// if err != nil {
-	// 	logger.WithFields(log.Fields{
-	// 		constants.AppError:    constants.UnableToGetDBConnStr,
-	// 		constants.ErrorDetail: err.Error(),
-	// 	}).Fatal("Error constructing DB connection string")
-	// }
+	connStr, err := getDBConnectionStr(configs, secrets)
+	if err != nil {
+		logger.WithFields(log.Fields{
+			constants.AppError:    constants.UnableToGetDBConnStr,
+			constants.ErrorDetail: err.Error(),
+		}).Fatal("Error constructing DB connection string")
+	}
 
-	// TODO: Re-enable connStr
-	// db, err := sql.Open("mysql", connStr)
-	db, err := sql.Open("mysql", "admin:2girls1cat@tcp(10.0.0.100:3306)/mockvideo")
+	db, err := sql.Open("mysql", connStr)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.AppError:    constants.UnableToOpenDBConn,
@@ -131,46 +126,47 @@ func main() {
 	mux.Handle("/custdhealth", healthHandler)
 	mux.Handle("/metrics", promhttp.Handler())
 
-	port, ok := config["port"]
+	port, ok := configs["port"]
 	if !ok {
-		logger.Info("port configuration unavailable (config[port]), defaulting to 5000")
+		logger.Info("port configuration unavailable (configs[port]), defaulting to 5000")
 		port = "5000"
 	}
 	port = ":" + port
 
 	logger.WithFields(log.Fields{
 		constants.ConfigFileName: *configFileName,
+		constants.SecretsDirName: *secretsDir,
 		constants.Port:           port,
 		constants.LogLevel:       log.GetLevel().String(),
 	}).Info("customerd service starting")
 	logger.Fatal(http.ListenAndServe(port, mux))
 }
 
-func getDBConnectionStr(config map[string]string) (string, error) {
+func getDBConnectionStr(configs, secrets map[string]string) (string, error) {
 	// E.g., "username:userpassword@tcp(10.0.0.100:3306)/mockvideo"
 	var sb strings.Builder
 
-	dbuser, ok := config["dbuser"]
+	dbuser, ok := secrets["dbuser"]
 	if !ok {
 		return "", errors.NotAssignedf("DB user name, identified by 'dbuser', not found in secrets")
 	}
 	sb.WriteString(dbuser)
 	sb.WriteString(":")
-	dbpassword, ok := config["dbpassword"]
+	dbpassword, ok := secrets["dbpassword"]
 	if !ok {
 		return "", errors.NotAssignedf("DB user password, identified by 'dbpassword', not found in secrets")
 	}
 	sb.WriteString(dbpassword) // TODO: Replace with secret
 	sb.WriteString("@tcp(")
 
-	dbHost, ok := config["dbHost"]
+	dbHost, ok := configs["dbHost"]
 	if !ok {
 		return "", errors.NotAssignedf("DB hostname/address, identified by 'dbHost', not found in configuration")
 	}
 	sb.WriteString(dbHost)
 	sb.WriteString(":")
 
-	dbPort, ok := config["dbPort"]
+	dbPort, ok := configs["dbPort"]
 	if !ok {
 		return "", errors.NotAssignedf("DB port, identified by 'dbPort', not found in configuration")
 	}
@@ -178,7 +174,7 @@ func getDBConnectionStr(config map[string]string) (string, error) {
 
 	sb.WriteString(")/")
 
-	dbName, ok := config["dbName"]
+	dbName, ok := configs["dbName"]
 	if !ok {
 		return "", errors.NotAssignedf("DB Name, identified by 'dbName', not found in configuration")
 	}

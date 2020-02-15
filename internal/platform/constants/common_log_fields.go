@@ -5,6 +5,7 @@ const (
 	Application    string = "Application"
 	AppError       string = "AppError"
 	ConfigFileName string = "ConfigFileName"
+	SecretsDirName string = "SecretsDirName"
 	Port           string = "Port"
 	ErrorDetail    string = "ErrorDetail"
 	LogLevel       string = "LogLevel"

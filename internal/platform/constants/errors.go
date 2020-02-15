@@ -10,6 +10,8 @@ const (
 	UnableToGetConfig = "Unable to get information from configuration"
 	// UnableToLoadConfig indicates there was a problem loading the configuration
 	UnableToLoadConfig = "Unable to load configuration"
+	// UnableToLoadSecrets indicates there was a problem loading the application's secrets
+	UnableToLoadSecrets = "Unable to load secrets"
 
 	// UnableToGetDBConnStr indicates there was a problem constructing a DB connection string
 	UnableToGetDBConnStr = "Unable to get DB connection string"
