@@ -20,6 +20,8 @@ import (
 )
 
 // TODO:
+//	-2	TODO: Use error codes in errors (e.g., nil db pointer passed text message should also include the error code)
+//	-1	TODO: Use config struct
 //	0.	TODO: Rethink errors, see TODO in errors.go
 //	1.	TODO: HTTP connection configs (e.g., timeouts)
 //  1.  TODO: DB configs, use secrets for user name and password
@@ -111,7 +113,7 @@ func main() {
 	//
 	// Setup endpoints and start service
 	//
-	customersHandler, err := handlers.New(db)
+	customersHandler, err := handlers.New(db, logger)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.AppError:    constants.UnableToCreateHTTPHandler,

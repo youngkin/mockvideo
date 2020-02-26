@@ -10,10 +10,11 @@ const (
 	ErrorDetail    string = "ErrorDetail"
 	LogLevel       string = "LogLevel"
 	HostName       string = "HostName"
-	URLHostName    string = "URLHostName"
-	Path           string = "URLPath"
-	Method         string = "HTTPMethod"
-	RemoteAddr     string = "RemoteAddr"
+	//	URLHostName    string = "URLHostName"
+	Path       string = "URLPath"
+	Method     string = "HTTPMethod"
+	RemoteAddr string = "RemoteAddr"
+	TestName   string = "TestName"
 )
 
 const (

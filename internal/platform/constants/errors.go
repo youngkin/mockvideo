@@ -24,4 +24,7 @@ const (
 	UnableToCreateHTTPHandler = "Unable to create HTTP handler"
 	// DBQueryError indications that there was a problem executing a DB query operation
 	DBQueryError = "DB query failed"
+
+	// JSONMarshalingError indicates that there was a problem un/marshaling JSON
+	JSONMarshalingError = "JSON Marshaling Error"
 )

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,11 +13,11 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/youngkin/mockvideo/internal/customers"
 	"github.com/youngkin/mockvideo/internal/platform/constants"
-	"github.com/youngkin/mockvideo/internal/platform/logging"
 )
 
 type handler struct {
-	db *sql.DB
+	db     *sql.DB
+	logger *log.Entry
 }
 
 var (
@@ -28,16 +29,12 @@ var (
 		// Buckets:   prometheus.ExponentialBuckets(0.005, 1.1, 40),
 		Buckets: prometheus.LinearBuckets(0.001, .004, 50),
 	}, []string{"code"})
-
-	logger *log.Entry
 )
 
 func init() {
 	prometheus.MustRegister(customerRqstDur)
 	// Add Go module build info.
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
-
-	logger = logging.GetLogger().WithField(constants.Application, constants.Customer)
 }
 
 // TODO:
@@ -59,22 +56,28 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
-	logger.WithFields(log.Fields{
-		constants.Method:      r.Method,
-		constants.URLHostName: r.URL.Host,
-		constants.Path:        r.URL.Path,
-		constants.RemoteAddr:  r.RemoteAddr,
+	h.logger.WithFields(log.Fields{
+		constants.Method:     r.Method,
+		constants.HostName:   r.URL.Host,
+		constants.Path:       r.URL.Path,
+		constants.RemoteAddr: r.RemoteAddr,
 	}).Info("HTTP request received")
 	start := time.Now()
 
 	results, err := h.db.Query("SELECT id, name, streetAddress, city, state, country FROM customer")
 	if err != nil {
-		logger.WithFields(log.Fields{
+		h.logger.WithFields(log.Fields{
 			constants.AppError:    constants.DBQueryError,
 			constants.ErrorDetail: err.Error(),
 		}).Error("Error querying DB")
+		w.WriteHeader(http.StatusInternalServerError)
+
+		customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+
+		return
 	}
 
+	custs := customers.Customers{}
 	for results.Next() {
 		var customer customers.Customer
 
@@ -85,18 +88,49 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 			&customer.State,
 			&customer.Country)
 		if err != nil {
-			logger.WithFields(log.Fields{
+			h.logger.WithFields(log.Fields{
 				constants.AppError:    constants.DBRowScanError,
 				constants.ErrorDetail: err.Error(),
 			}).Error("Error scanning resultset")
 			w.WriteHeader(http.StatusInternalServerError)
 			customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+
+			customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+
 			return
 		}
 
-		fmt.Fprintf(w, "ID: %d, Name: %s, Address: %s, City: %s, State: %s, Country: %s\n",
+		customer = customers.Customer{
+			ID:            customer.ID,
+			Name:          customer.Name,
+			StreetAddress: customer.StreetAddress,
+			City:          customer.City,
+			State:         customer.State,
+			Country:       customer.Country,
+		}
+		custs.Customers = append(custs.Customers, customer)
+
+		s := fmt.Sprintf("ID: %d, Name: %s, Address: %s, City: %s, State: %s, Country: %s\n",
 			customer.ID, customer.Name, customer.State, customer.City, customer.State, customer.Country)
+		h.logger.Debug(s)
+
 	}
+
+	marshCusts, err := json.Marshal(custs)
+	if err != nil {
+		h.logger.WithFields(log.Fields{
+			constants.AppError:    constants.JSONMarshalingError,
+			constants.ErrorDetail: err.Error(),
+		}).Error("Error marshaling JSON")
+		w.WriteHeader(http.StatusInternalServerError)
+
+		customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(marshCusts)
 
 	customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusFound)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
@@ -107,10 +141,13 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 }
 
 // New returns a *http.Handler configured with a database connection
-func New(db *sql.DB) (http.Handler, error) {
+func New(db *sql.DB, logger *log.Entry) (http.Handler, error) {
 	if db == nil {
 		return nil, errors.New("non-nil sql.DB connection required")
 	}
+	if logger == nil {
+		return nil, errors.New("non-nil log.Entry  required")
+	}
 
-	return handler{db: db}, nil
+	return handler{db: db, logger: logger}, nil
 }

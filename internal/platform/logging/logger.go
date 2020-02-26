@@ -25,8 +25,7 @@ func init() {
 	}
 
 	logger = log.WithFields(log.Fields{
-		constants.Application: constants.Customer,
-		constants.HostName:    hostName,
+		constants.HostName: hostName,
 	})
 
 }
