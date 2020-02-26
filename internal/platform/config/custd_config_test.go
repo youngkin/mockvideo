@@ -70,31 +70,35 @@ func (mc *MockConfig) Read(p []byte) (n int, err error) {
 
 func TestLoadConfig(t *testing.T) {
 	for _, test := range configTests {
-		configs, err := LoadConfig(&MockConfig{contents: test.input})
-		if err != nil && test.expectFail == false {
-			t.Errorf("TestName: %s, Expected nil error, got %v", test.testName, err)
-		}
-		if err == nil && test.expectFail == true {
-			t.Errorf("TestName: %s, Expected non-nil error", test.testName)
-		}
-		if !test.expectFail && !reflect.DeepEqual(configs, test.expected) {
-			t.Errorf("TestName: %s, expected %v, got %v", test.testName, test.expected, configs)
-		}
+		t.Run(test.testName, func(t *testing.T) {
+			configs, err := LoadConfig(&MockConfig{contents: test.input})
+			if err != nil && test.expectFail == false {
+				t.Errorf("TestName: %s, Expected nil error, got %v", test.testName, err)
+			}
+			if err == nil && test.expectFail == true {
+				t.Errorf("TestName: %s, Expected non-nil error", test.testName)
+			}
+			if !test.expectFail && !reflect.DeepEqual(configs, test.expected) {
+				t.Errorf("TestName: %s, expected %v, got %v", test.testName, test.expected, configs)
+			}
+		})
 	}
 }
 
 func TestLoadSecrets(t *testing.T) {
 	for _, test := range secretTests {
-		secrets, err := LoadSecrets(test.testDir)
-		if err != nil && test.expectFail == false {
-			t.Errorf("TestName: %s, Expected nil error, got %v", test.testName, err)
-		}
-		if err == nil && test.expectFail == true {
-			t.Errorf("TestName: %s, Expected non-nil error", test.testName)
-		}
+		t.Run(test.testName, func(t *testing.T) {
+			secrets, err := LoadSecrets(test.testDir)
+			if err != nil && test.expectFail == false {
+				t.Errorf("TestName: %s, Expected nil error, got %v", test.testName, err)
+			}
+			if err == nil && test.expectFail == true {
+				t.Errorf("TestName: %s, Expected non-nil error", test.testName)
+			}
 
-		if !test.expectFail && !reflect.DeepEqual(secrets, test.expected) {
-			t.Errorf("TestName: %s, expected %v, got %v", test.testName, test.expected, secrets)
-		}
+			if !test.expectFail && !reflect.DeepEqual(secrets, test.expected) {
+				t.Errorf("TestName: %s, expected %v, got %v", test.testName, test.expected, secrets)
+			}
+		})
 	}
 }

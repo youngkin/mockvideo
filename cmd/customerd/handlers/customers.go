@@ -64,57 +64,19 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	}).Info("HTTP request received")
 	start := time.Now()
 
-	results, err := h.db.Query("SELECT id, name, streetAddress, city, state, country FROM customer")
+	custs, err := customers.GetAllCustomers(h.db)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
-			constants.AppError:    constants.DBQueryError,
+			constants.AppError:    constants.DBRowScanError,
 			constants.ErrorDetail: err.Error(),
-		}).Error("Error querying DB")
+		}).Error("Error retrieving customers")
 		w.WriteHeader(http.StatusInternalServerError)
 
 		customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
-
 		return
 	}
 
-	custs := customers.Customers{}
-	for results.Next() {
-		var customer customers.Customer
-
-		err = results.Scan(&customer.ID,
-			&customer.Name,
-			&customer.StreetAddress,
-			&customer.City,
-			&customer.State,
-			&customer.Country)
-		if err != nil {
-			h.logger.WithFields(log.Fields{
-				constants.AppError:    constants.DBRowScanError,
-				constants.ErrorDetail: err.Error(),
-			}).Error("Error scanning resultset")
-			w.WriteHeader(http.StatusInternalServerError)
-			customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
-
-			customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
-
-			return
-		}
-
-		customer = customers.Customer{
-			ID:            customer.ID,
-			Name:          customer.Name,
-			StreetAddress: customer.StreetAddress,
-			City:          customer.City,
-			State:         customer.State,
-			Country:       customer.Country,
-		}
-		custs.Customers = append(custs.Customers, customer)
-
-		s := fmt.Sprintf("ID: %d, Name: %s, Address: %s, City: %s, State: %s, Country: %s\n",
-			customer.ID, customer.Name, customer.State, customer.City, customer.State, customer.Country)
-		h.logger.Debug(s)
-
-	}
+	h.logger.Debugf("GetAllCustomers() results: %+v", custs)
 
 	marshCusts, err := json.Marshal(custs)
 	if err != nil {
@@ -125,7 +87,6 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 
 		customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
-
 		return
 	}
 

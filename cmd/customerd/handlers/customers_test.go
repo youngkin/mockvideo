@@ -2,8 +2,8 @@ package handlers
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +14,14 @@ import (
 	"github.com/youngkin/mockvideo/internal/customers"
 	"github.com/youngkin/mockvideo/internal/platform/logging"
 )
+
+type Tests struct {
+	testName           string
+	shouldPass         bool
+	setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, customers.Customers)
+	teardownFunc       func(*testing.T, sqlmock.Sqlmock)
+	expectedHTTPStatus int
+}
 
 // logger is used to control code-under-test logging behavior
 var logger *log.Entry
@@ -31,147 +39,74 @@ func init() {
 	//  })
 }
 
-func TestGetCustomers(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	custHandler, err := New(db, logger)
-	if err != nil {
-		t.Fatalf("error '%s' was not expected when getting a customer handler", err)
-	}
-
-	rows := sqlmock.NewRows([]string{"id", "name", "streetAddress", "city", "state", "country"}).
-		AddRow(1, "porgy tirebiter", "123 anyStreet", "anyCity", "anyState", "anyCountry").
-		AddRow(2, "mickey dolenz", "123 Laurel Canyon", "LA", "CA", "USA")
-
-	mock.ExpectQuery("SELECT id, name, streetAddress, city, state, country FROM customer").
-		WillReturnRows(rows)
-
-	testSrv := httptest.NewServer(http.HandlerFunc(custHandler.ServeHTTP))
-	defer testSrv.Close()
-
-	url := testSrv.URL
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected calling customerd server", err)
-	}
-	defer resp.Body.Close()
-
-	actual, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected reading response body", err)
-	}
-
-	expected := customers.Customers{
-		Customers: []customers.Customer{
-			{
-				ID:            1,
-				Name:          "porgy tirebiter",
-				StreetAddress: "123 anyStreet",
-				City:          "anyCity",
-				State:         "anyState",
-				Country:       "anyCountry",
-			},
-			{
-				ID:            2,
-				Name:          "mickey dolenz",
-				StreetAddress: "123 Laurel Canyon",
-				City:          "LA",
-				State:         "CA",
-				Country:       "USA",
-			},
+func TestGetAllCustomers(t *testing.T) {
+	tests := []Tests{
+		{
+			testName:           "testGetAllCustomersSuccess",
+			shouldPass:         true,
+			setupFunc:          customers.DBCallSetupHelper,
+			teardownFunc:       customers.DBCallTeardownHelper,
+			expectedHTTPStatus: http.StatusOK,
+		},
+		{
+			testName:           "testGetAllCustomersQueryFailure",
+			shouldPass:         false,
+			setupFunc:          customers.DBCallQueryErrorSetupHelper,
+			teardownFunc:       customers.DBCallTeardownHelper,
+			expectedHTTPStatus: http.StatusInternalServerError,
+		},
+		{
+			testName:           "testGetAllCustomersRowScanFailure",
+			shouldPass:         false,
+			setupFunc:          customers.DBCallRowScanErrorSetupHelper,
+			teardownFunc:       customers.DBCallTeardownHelper,
+			expectedHTTPStatus: http.StatusInternalServerError,
 		},
 	}
 
-	mExpected, err := json.Marshal(expected)
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected Marshaling %+v", err, expected)
-	}
+	for _, tc := range tests {
+		t.Run(tc.testName, func(t *testing.T) {
+			db, mock, expected := tc.setupFunc(t)
+			defer db.Close()
 
-	if bytes.Compare(mExpected, actual) != 0 {
-		t.Errorf("expected %+v, got %+v", mExpected, actual)
-	}
+			custHandler, err := New(db, logger)
+			if err != nil {
+				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
+			}
 
-	// we make sure that all expectations were met
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-}
+			testSrv := httptest.NewServer(http.HandlerFunc(custHandler.ServeHTTP))
+			defer testSrv.Close()
 
-func TestGetCustomersError(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
+			url := testSrv.URL
+			resp, err := http.Get(url)
+			if err != nil {
+				t.Fatalf("an error '%s' was not expected calling customerd server", err)
+			}
+			defer resp.Body.Close()
 
-	custHandler, err := New(db, logger)
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when getting a customer handler", err)
-	}
+			status := resp.StatusCode
+			if status != tc.expectedHTTPStatus {
+				t.Errorf("expected StatusCode = %d, got %d", tc.expectedHTTPStatus, status)
+			}
 
-	mock.ExpectQuery("SELECT id, name, streetAddress, city, state, country FROM customer").
-		WillReturnError(fmt.Errorf("some error"))
+			if tc.shouldPass {
+				actual, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					t.Fatalf("an error '%s' was not expected reading response body", err)
+				}
 
-	testSrv := httptest.NewServer(http.HandlerFunc(custHandler.ServeHTTP))
-	defer testSrv.Close()
+				mExpected, err := json.Marshal(expected)
+				if err != nil {
+					t.Fatalf("an error '%s' was not expected Marshaling %+v", err, expected)
+				}
 
-	url := testSrv.URL
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected calling customerd server", err)
-	}
-	defer resp.Body.Close()
+				if bytes.Compare(mExpected, actual) != 0 {
+					t.Errorf("expected %+v, got %+v", string(mExpected), actual)
+				}
+			}
 
-	status := resp.StatusCode
-	if status != 500 {
-		t.Errorf("expected StatusCode = 500, got %d", status)
-	}
-
-	// we make sure that all expectations were met
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
-	}
-}
-
-func TestGetCustomersRowScanError(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
-	}
-	defer db.Close()
-
-	custHandler, err := New(db, logger)
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected when getting a customer handler", err)
-	}
-
-	rows := sqlmock.NewRows([]string{"badRow"}).
-		AddRow(-1)
-
-	mock.ExpectQuery("SELECT id, name, streetAddress, city, state, country FROM customer").
-		WillReturnRows(rows)
-
-	testSrv := httptest.NewServer(http.HandlerFunc(custHandler.ServeHTTP))
-	defer testSrv.Close()
-
-	url := testSrv.URL
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("an error '%s' was not expected calling customerd server", err)
-	}
-	defer resp.Body.Close()
-
-	status := resp.StatusCode
-	if status != 500 {
-		t.Errorf("expected StatusCode = 500, got %d", status)
-	}
-
-	// we make sure that all expectations were met
-	if err := mock.ExpectationsWereMet(); err != nil {
-		t.Errorf("there were unfulfilled expectations: %s", err)
+			// we make sure that all post-conditions were met
+			customers.DBCallTeardownHelper(t, mock)
+		})
 	}
 }
