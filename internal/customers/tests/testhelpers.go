@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/youngkin/mockvideo/internal/customers"
 )
 
 // DBCallSetupHelper encapsulates common code needed to setup mock DB access to customer data
-func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, Customers) {
+func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, customers.Customers) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
@@ -22,8 +23,8 @@ func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, Customers) {
 	mock.ExpectQuery("SELECT id, name, streetAddress, city, state, country FROM customer").
 		WillReturnRows(rows)
 
-	expected := Customers{
-		Customers: []Customer{
+	expected := customers.Customers{
+		Customers: []customers.Customer{
 			{
 				ID:            1,
 				Name:          "porgy tirebiter",
@@ -47,7 +48,7 @@ func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, Customers) {
 }
 
 // DBCallQueryErrorSetupHelper encapsulates common coded needed to mock DB query failures
-func DBCallQueryErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, Customers) {
+func DBCallQueryErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, customers.Customers) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
@@ -56,11 +57,11 @@ func DBCallQueryErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, Custom
 	mock.ExpectQuery("SELECT id, name, streetAddress, city, state, country FROM customer").
 		WillReturnError(fmt.Errorf("some error"))
 
-	return db, mock, Customers{}
+	return db, mock, customers.Customers{}
 }
 
 // DBCallRowScanErrorSetupHelper encapsulates common coded needed to mock DB query failures
-func DBCallRowScanErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, Customers) {
+func DBCallRowScanErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, customers.Customers) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
@@ -72,7 +73,7 @@ func DBCallRowScanErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, Cust
 	mock.ExpectQuery("SELECT id, name, streetAddress, city, state, country FROM customer").
 		WillReturnRows(rows)
 
-	return db, mock, Customers{}
+	return db, mock, customers.Customers{}
 }
 
 // DBCallTeardownHelper encapsulates common code needed to finalize processing of mock DB access to customer data

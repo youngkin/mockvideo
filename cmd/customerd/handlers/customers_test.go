@@ -12,6 +12,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	log "github.com/sirupsen/logrus"
 	"github.com/youngkin/mockvideo/internal/customers"
+	tests "github.com/youngkin/mockvideo/internal/customers/tests"
 	"github.com/youngkin/mockvideo/internal/platform/logging"
 )
 
@@ -40,31 +41,31 @@ func init() {
 }
 
 func TestGetAllCustomers(t *testing.T) {
-	tests := []Tests{
+	tcs := []Tests{
 		{
 			testName:           "testGetAllCustomersSuccess",
 			shouldPass:         true,
-			setupFunc:          customers.DBCallSetupHelper,
-			teardownFunc:       customers.DBCallTeardownHelper,
+			setupFunc:          tests.DBCallSetupHelper,
+			teardownFunc:       tests.DBCallTeardownHelper,
 			expectedHTTPStatus: http.StatusOK,
 		},
 		{
 			testName:           "testGetAllCustomersQueryFailure",
 			shouldPass:         false,
-			setupFunc:          customers.DBCallQueryErrorSetupHelper,
-			teardownFunc:       customers.DBCallTeardownHelper,
+			setupFunc:          tests.DBCallQueryErrorSetupHelper,
+			teardownFunc:       tests.DBCallTeardownHelper,
 			expectedHTTPStatus: http.StatusInternalServerError,
 		},
 		{
 			testName:           "testGetAllCustomersRowScanFailure",
 			shouldPass:         false,
-			setupFunc:          customers.DBCallRowScanErrorSetupHelper,
-			teardownFunc:       customers.DBCallTeardownHelper,
+			setupFunc:          tests.DBCallRowScanErrorSetupHelper,
+			teardownFunc:       tests.DBCallTeardownHelper,
 			expectedHTTPStatus: http.StatusInternalServerError,
 		},
 	}
 
-	for _, tc := range tests {
+	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
 			db, mock, expected := tc.setupFunc(t)
 			defer db.Close()
@@ -106,7 +107,7 @@ func TestGetAllCustomers(t *testing.T) {
 			}
 
 			// we make sure that all post-conditions were met
-			customers.DBCallTeardownHelper(t, mock)
+			tests.DBCallTeardownHelper(t, mock)
 		})
 	}
 }

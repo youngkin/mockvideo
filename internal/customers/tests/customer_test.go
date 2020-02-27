@@ -6,12 +6,13 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/youngkin/mockvideo/internal/customers"
 )
 
 type Tests struct {
 	testName     string
 	shouldPass   bool
-	setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, Customers)
+	setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, customers.Customers)
 	teardownFunc func(*testing.T, sqlmock.Sqlmock)
 }
 
@@ -42,7 +43,7 @@ func TestGetAllCustomers(t *testing.T) {
 			db, mock, expected := tc.setupFunc(t)
 			defer db.Close()
 
-			actual, err := GetAllCustomers(db)
+			actual, err := customers.GetAllCustomers(db)
 			if tc.shouldPass && err != nil {
 				t.Fatalf("error '%s' was not expected", err)
 			}
