@@ -2,7 +2,7 @@
 
 # MockVideo
 
-This project is related to the blog series [Developing & Deploying Kubernetes Applications on a Raspberry Pi Cluster](https://richyoungkin.wixsite.com/interests/post/developinganddeployingkubernetesapplicationsonaraspberrypicluster). Unlike the focus of that blog series, this application isn't meant to be deployed exclusively on a Raspberry Pi cluster. Rather, its intent is to show microservice development best practices with a relatively simple, but production-ready, application.
+This project is related to the blog series [Developing & Deploying Kubernetes Applications on a Raspberry Pi Cluster](https://richyoungkin.wixsite.com/interests/post/developinganddeployingkubernetesapplicationsonaraspberrypicluster). Unlike the focus of that blog series, this application isn't meant to be deployed exclusively on a Raspberry Pi cluster. Rather, its intent is to showcase microservice development best practices with a relatively simple, but production-ready, application.
 
 MockVideo, as its name implies, provides a mockup of a fictional cable TV company or [MSO (Multiple System Operator)](https://www.techopedia.com/definition/26084/multiple-system-operators-mso). Today most of these companies are evolving beyond simply providing TV service. Several provide not only TV service, but also Internet access and wireless telephony service. The intial focus of this will be on the video delivery aspects of a fictional MSO.
 
