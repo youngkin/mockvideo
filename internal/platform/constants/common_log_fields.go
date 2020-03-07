@@ -1,20 +1,25 @@
 package constants
 
+//
+// **NOTE** When adding constants, please order them in alphabetical sequence
+//
 const (
 	// Application is a reference to the standard logging field "application"
-	Application    string = "Application"
 	AppError       string = "AppError"
+	Application    string = "Application"
 	ConfigFileName string = "ConfigFileName"
-	SecretsDirName string = "SecretsDirName"
-	Port           string = "Port"
+	DBHost         string = "DBHost"
+	DBName         string = "DBName"
+	DBPort         string = "DBPort"
 	ErrorDetail    string = "ErrorDetail"
-	LogLevel       string = "LogLevel"
 	HostName       string = "HostName"
-	//	URLHostName    string = "URLHostName"
-	Path       string = "URLPath"
-	Method     string = "HTTPMethod"
-	RemoteAddr string = "RemoteAddr"
-	TestName   string = "TestName"
+	LogLevel       string = "LogLevel"
+	Method         string = "HTTPMethod"
+	Path           string = "URLPath"
+	Port           string = "Port"
+	RemoteAddr     string = "RemoteAddr"
+	SecretsDirName string = "SecretsDirName"
+	TestName       string = "TestName"
 )
 
 const (

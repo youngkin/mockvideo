@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
@@ -127,6 +128,7 @@ func main() {
 	mux.Handle("/customers", customersHandler)
 	mux.Handle("/custdhealth", healthHandler)
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/sleeper", func(w http.ResponseWriter, r *http.Request) { time.Sleep(10 * time.Second) })
 
 	port, ok := configs["port"]
 	if !ok {
@@ -140,6 +142,9 @@ func main() {
 		constants.SecretsDirName: *secretsDir,
 		constants.Port:           port,
 		constants.LogLevel:       log.GetLevel().String(),
+		constants.DBHost:         configs["dbHost"],
+		constants.DBPort:         configs["dbPort"],
+		constants.DBName:         configs["dbName"],
 	}).Info("customerd service starting")
 	logger.Fatal(http.ListenAndServe(port, mux))
 }
@@ -158,7 +163,7 @@ func getDBConnectionStr(configs, secrets map[string]string) (string, error) {
 	if !ok {
 		return "", errors.NotAssignedf("DB user password, identified by 'dbpassword', not found in secrets")
 	}
-	sb.WriteString(dbpassword) // TODO: Replace with secret
+	sb.WriteString(dbpassword)
 	sb.WriteString("@tcp(")
 
 	dbHost, ok := configs["dbHost"]
