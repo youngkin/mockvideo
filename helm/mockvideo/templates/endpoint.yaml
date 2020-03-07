@@ -1,0 +1,12 @@
+kind: Endpoints
+apiVersion: v1
+metadata:
+  name: {{ .Values.mysqlEndpoint.name }}
+subsets:
+  - addresses:
+    - ip: {{ .Values.mysqlEndpoint.ip }}
+    ports:
+      - port: {{ .Values.mysqlEndpoint.port }}
+        name: {{ .Values.mysqlEndpoint.name }}
+selector: {}
+
