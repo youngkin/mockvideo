@@ -18,6 +18,7 @@ const (
 	Path           string = "URLPath"
 	Port           string = "Port"
 	RemoteAddr     string = "RemoteAddr"
+	ServiceName    string = "ServiceName"
 	SecretsDirName string = "SecretsDirName"
 	TestName       string = "TestName"
 )

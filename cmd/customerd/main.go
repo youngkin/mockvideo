@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -128,7 +131,12 @@ func main() {
 	mux.Handle("/customers", customersHandler)
 	mux.Handle("/custdhealth", healthHandler)
 	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/sleeper", func(w http.ResponseWriter, r *http.Request) { time.Sleep(10 * time.Second) })
+	mux.HandleFunc("/sleeper", func(w http.ResponseWriter, r *http.Request) {
+		logger.WithFields(log.Fields{
+			constants.ServiceName: "sleeper",
+		}).Info("handling request")
+		time.Sleep(10 * time.Second)
+	})
 
 	port, ok := configs["port"]
 	if !ok {
@@ -137,16 +145,48 @@ func main() {
 	}
 	port = ":" + port
 
-	logger.WithFields(log.Fields{
-		constants.ConfigFileName: *configFileName,
-		constants.SecretsDirName: *secretsDir,
-		constants.Port:           port,
-		constants.LogLevel:       log.GetLevel().String(),
-		constants.DBHost:         configs["dbHost"],
-		constants.DBPort:         configs["dbPort"],
-		constants.DBName:         configs["dbName"],
-	}).Info("customerd service starting")
-	logger.Fatal(http.ListenAndServe(port, mux))
+	s := &http.Server{Addr: port, Handler: mux}
+
+	go func() {
+		logger.WithFields(log.Fields{
+			constants.ConfigFileName: *configFileName,
+			constants.SecretsDirName: *secretsDir,
+			constants.Port:           port,
+			constants.LogLevel:       log.GetLevel().String(),
+			constants.DBHost:         configs["dbHost"],
+			constants.DBPort:         configs["dbPort"],
+			constants.DBName:         configs["dbName"],
+		}).Info("customerd service starting")
+
+		if err := s.ListenAndServe(); err != http.ErrServerClosed {
+			logger.Fatal(err)
+		}
+	}()
+
+	handleTermSignal(s, logger, 10)
+}
+
+//
+// Helper funcs
+//
+
+func handleTermSignal(s *http.Server, logger *log.Entry, timeout int) {
+	term := make(chan os.Signal, 1)
+	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
+
+	<-term
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+	defer cancel()
+
+	logger.Infof("Server shutting down with timeout: %d", timeout)
+
+	if err := s.Shutdown(ctx); err != nil {
+		logger.Warnf("Server shutting down with error: %s", err)
+	} else {
+		logger.Info("Server stopped")
+	}
+
 }
 
 func getDBConnectionStr(configs, secrets map[string]string) (string, error) {

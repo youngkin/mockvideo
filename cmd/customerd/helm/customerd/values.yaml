@@ -6,7 +6,7 @@ replicaCount: 4
 
 image:
   repository: ryoungkin/customerd
-  tag: 0.0.33
+  tag: 0.0.36
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
