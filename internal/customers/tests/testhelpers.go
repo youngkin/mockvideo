@@ -24,7 +24,7 @@ func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, customers.Custom
 		WillReturnRows(rows)
 
 	expected := customers.Customers{
-		Customers: []customers.Customer{
+		Customers: []*customers.Customer{
 			{
 				ID:            1,
 				Name:          "porgy tirebiter",
@@ -81,5 +81,75 @@ func DBCallTeardownHelper(t *testing.T, mock sqlmock.Sqlmock) {
 	// we make sure that all expectations were met
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("there were unfulfilled expectations: %s", err)
+	}
+}
+
+// GetCustSetupHelper encapsulates common code needed to setup mock DB access a single customer's data
+func GetCustSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *customers.Customer) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	rows := sqlmock.NewRows([]string{"id", "name", "streetAddress", "city", "state", "country"}).
+		AddRow(1, "porgy tirebiter", "123 anyStreet", "anyCity", "anyState", "anyCountry")
+
+	mock.ExpectQuery("SELECT id, name, streetAddress, city, state, country FROM customer WHERE id=1").
+		WillReturnRows(rows)
+
+	expected := &customers.Customer{
+		ID:            1,
+		Name:          "porgy tirebiter",
+		StreetAddress: "123 anyStreet",
+		City:          "anyCity",
+		State:         "anyState",
+		Country:       "anyCountry",
+	}
+
+	return db, mock, expected
+}
+
+// DBCustErrNoRowsSetupHelper encapsulates common coded needed to mock Queries returning no rows
+func DBCustErrNoRowsSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *customers.Customer) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	mock.ExpectQuery("SELECT id, name, streetAddress, city, state, country FROM customer WHERE id=1").
+		WillReturnError(sql.ErrNoRows)
+
+	return db, mock, nil
+}
+
+// DBCustOtherErrSetupHelper encapsulates common coded needed to mock Queries returning no rows
+func DBCustOtherErrSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *customers.Customer) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	mock.ExpectQuery("SELECT id, name, streetAddress, city, state, country FROM customer WHERE id=1").
+		WillReturnError(sql.ErrConnDone)
+
+	return db, mock, nil
+}
+
+// DBCallNoExpectationsSetupHelper encapsulates common coded needed to when no expectations are present
+func DBCallNoExpectationsSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *customers.Customer) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	return db, mock, nil
+}
+
+func validateExpectedErrors(t *testing.T, err error, shouldPass bool) {
+	if shouldPass && err != nil {
+		t.Fatalf("error '%s' was not expected", err)
+	}
+	if !shouldPass && err == nil {
+		t.Fatalf("expected error didn't occur")
 	}
 }
