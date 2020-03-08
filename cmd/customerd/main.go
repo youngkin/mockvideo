@@ -170,6 +170,8 @@ func main() {
 // Helper funcs
 //
 
+// handleTermSignal provides a mechanism to catch SIGTERMs and gracefully
+// shutdown the service.
 func handleTermSignal(s *http.Server, logger *log.Entry, timeout int) {
 	term := make(chan os.Signal, 1)
 	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
