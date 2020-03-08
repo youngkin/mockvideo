@@ -1,12 +1,11 @@
 [![Build Status](https://travis-ci.org/youngkin/mockvideo.svg?branch=master)](https://travis-ci.org/youngkin/mockvideo) [![Go Report Card](https://goreportcard.com/badge/github.com/youngkin/mockvideo)](https://goreportcard.com/report/github.com/youngkin/mockvideo)
-# Contents
-- [Contents](#contents)
-- [MockVideo](#mockvideo)
-- [Docker Respositories](#docker-respositories)
-  
-# MockVideo
 
 This project is related to the blog series [Developing & Deploying Kubernetes Applications on a Raspberry Pi Cluster](https://medium.com/@RichYoungkin/develop-and-deploy-kubernetes-applications-on-a-raspberry-pi-cluster-fbd4d97a904c). Unlike the focus of that blog series, this application isn't meant to be deployed exclusively on a Raspberry Pi cluster. Rather, its intent is to showcase microservice development best practices with a relatively simple, but production-ready, application.
+
+- [Overview](#overview)
+- [Docker Respositories](#docker-respositories)
+  
+# Overview
 
 MockVideo, as its name implies, provides a mockup of a fictional cable TV company or [MSO (Multiple System Operator)](https://www.techopedia.com/definition/26084/multiple-system-operators-mso). Today most of these companies are evolving beyond simply providing TV service. Several provide not only TV service, but also Internet access and wireless telephony service. The intial focus of this will be on the video delivery aspects of a fictional MSO.
 
@@ -44,7 +43,7 @@ Beyond this, other candidate features include:
 
 There is no intent to provide access to any video, video recording, or playback of video recording. Implementing these types of features is beyond the scope of this effort and would interfere with the stated purpose of creating a "template" application that demonstrates best-practices of microservice applications deployed to a Kubernetes cluster.
 
-This README will be regularly updated as progress continues. I welcome contributors, PRs, Issues, and comments.
+This README will be regularly updated as progress continues. I welcome contributions, PRs, Issues, and comments.
 
 # Docker Respositories
 
