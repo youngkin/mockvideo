@@ -78,7 +78,7 @@ const (
 	//
 
 	// CustTypeConversionErrorCode is the error code associated with CustTypeConversion
-	CustTypeConversionErrorCode = UnableToOpenConfigErrorCode + 1000
+	CustTypeConversionErrorCode = iota + 1000
 	// CustGETErrorCode is the error code associated with CustGETError
 	CustGETErrorCode
 )
