@@ -152,6 +152,14 @@ func TestGetCustomer(t *testing.T) {
 			teardownFunc:       tests.DBCallTeardownHelper,
 			expectedHTTPStatus: http.StatusInternalServerError,
 		},
+		{
+			testName:           "testGetCustomerErrNoRow",
+			url:                "/customers/notanumber",
+			shouldPass:         false,
+			setupFunc:          tests.DBCallNoExpectationsSetupHelper,
+			teardownFunc:       tests.DBCallTeardownHelper,
+			expectedHTTPStatus: http.StatusInternalServerError,
+		},
 	}
 
 	for _, tc := range tcs {

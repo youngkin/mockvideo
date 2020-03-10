@@ -60,26 +60,26 @@ func main() {
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ConfigFileName: *configFileName,
-			constants.AppError:       constants.UnableToOpenConfig,
+			constants.ErrorCode:      constants.UnableToOpenConfigErrorCode,
 			constants.ErrorDetail:    err.Error(),
-		}).Fatal("Error opening config file")
+		}).Fatal(constants.UnableToOpenConfig)
 	}
 	configs, err := config.LoadConfig(configFile)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ConfigFileName: *configFileName,
-			constants.AppError:       constants.UnableToLoadConfig,
+			constants.ErrorCode:      constants.UnableToLoadConfigErrorCode,
 			constants.ErrorDetail:    err.Error(),
-		}).Fatal("Error loading config data")
+		}).Fatal(constants.UnableToLoadConfig)
 	}
 
 	secrets, err := config.LoadSecrets(*secretsDir)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ConfigFileName: *secretsDir,
-			constants.AppError:       constants.UnableToLoadSecrets,
+			constants.ErrorCode:      constants.UnableToLoadSecretsErrorCode,
 			constants.ErrorDetail:    err.Error(),
-		}).Fatal("Error loading secrets data")
+		}).Fatal(constants.UnableToLoadSecrets)
 	}
 
 	loglevel, ok := configs["logLevel"]
@@ -100,17 +100,17 @@ func main() {
 	connStr, err := getDBConnectionStr(configs, secrets)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.AppError:    constants.UnableToGetDBConnStr,
+			constants.ErrorCode:   constants.UnableToGetDBConnStrErrorCode,
 			constants.ErrorDetail: err.Error(),
-		}).Fatal("Error constructing DB connection string")
+		}).Fatal(constants.UnableToGetDBConnStr)
 	}
 
 	db, err := sql.Open("mysql", connStr)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.AppError:    constants.UnableToOpenDBConn,
+			constants.ErrorCode:   constants.UnableToOpenDBConnErrorCode,
 			constants.ErrorDetail: err.Error(),
-		}).Fatal("Error opening DB connection")
+		}).Fatal(constants.UnableToOpenDBConn)
 	}
 	defer db.Close()
 
@@ -120,9 +120,9 @@ func main() {
 	customersHandler, err := handlers.New(db, logger)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.AppError:    constants.UnableToCreateHTTPHandler,
+			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,
 			constants.ErrorDetail: err.Error(),
-		}).Fatal("Error creating 'customers' HTTP handler")
+		}).Fatal(constants.UnableToCreateHTTPHandler)
 	}
 	healthHandler := http.HandlerFunc(handlers.HealthFunc)
 

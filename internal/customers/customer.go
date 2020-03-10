@@ -29,10 +29,10 @@ type Customers struct {
 }
 
 // GetAllCustomers will return all customers known to the application
-func GetAllCustomers(db *sql.DB) (Customers, error) {
+func GetAllCustomers(db *sql.DB) (*Customers, error) {
 	results, err := db.Query("SELECT id, name, streetAddress, city, state, country FROM customer")
 	if err != nil {
-		return Customers{}, errors.Annotate(err, "error querying DB")
+		return &Customers{}, errors.Annotate(err, "error querying DB")
 	}
 
 	custs := Customers{}
@@ -46,13 +46,13 @@ func GetAllCustomers(db *sql.DB) (Customers, error) {
 			&customer.State,
 			&customer.Country)
 		if err != nil {
-			return Customers{}, errors.Annotate(err, "error scanning result set")
+			return &Customers{}, errors.Annotate(err, "error scanning result set")
 		}
 
 		custs.Customers = append(custs.Customers, &customer)
 	}
 
-	return custs, nil
+	return &custs, nil
 }
 
 // GetCustomer will return the customer identified by 'id' or a nil customer if there

@@ -26,7 +26,7 @@ var (
 		Namespace: "mockvideo",
 		Subsystem: "customer",
 		Name:      "request_duration_seconds",
-		Help:      "customer request duration distribution",
+		Help:      "customer request duration distribution in seconds",
 		// Buckets:   prometheus.ExponentialBuckets(0.005, 1.1, 40),
 		Buckets: prometheus.LinearBuckets(0.001, .004, 50),
 	}, []string{"code"})
@@ -39,8 +39,7 @@ func init() {
 }
 
 // TODO:
-//	1.	Write unit test
-//  2.  Add context deadline to DB requests
+//	1.	Add context deadline to DB requests
 
 // ServeHTTP handles the request
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -64,9 +63,24 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 		constants.RemoteAddr: r.RemoteAddr,
 	}).Info("HTTP request received")
 	start := time.Now()
+	completeRequest := func(httpStatus int) {
+		w.WriteHeader(httpStatus)
+		customerRqstDur.WithLabelValues(strconv.Itoa(httpStatus)).
+			Observe(float64(time.Since(start)) / float64(time.Second))
+	}
 
 	// Expecting a URL.Path like '/customers' or '/customers/{id}'
 	pathNodes := strings.Split(r.URL.Path, "/")
+
+	if len(r.URL.Path) < 2 {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode: constants.MalformedURLErrorCode,
+			constants.Path:      r.URL.Path,
+		}).Error(constants.MalformedURL)
+		completeRequest(http.StatusInternalServerError)
+		return
+
+	}
 	// Strip off empty string that replaces the first '/' in '/customer'
 	pathNodes = pathNodes[1:]
 
@@ -82,19 +96,48 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.CustGETErrorCode,
+			constants.ErrorDetail: err.Error(),
+		}).Error(constants.JSONMarshalingError)
+		completeRequest(http.StatusInternalServerError)
+		return
+	}
+
+	custFound := true
+	switch p := payload.(type) {
+	case nil:
+		custFound = false
+	case *customers.Customer:
+		if p == nil {
+			custFound = false
+		}
+	case *customers.Customers:
+		if len(p.Customers) == 0 {
+			custFound = false
+		}
+	default:
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode: constants.CustTypeConversionErrorCode,
+		}).Error(constants.CustTypeConversionError)
+		completeRequest(http.StatusInternalServerError)
+		return
+	}
+	if !custFound {
+		h.logger.WithFields(log.Fields{
+			constants.HTTPStatus: http.StatusNotFound,
+		}).Error("Customer not found")
+		completeRequest(http.StatusNotFound)
 		return
 	}
 
 	marshPayload, err := json.Marshal(payload)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
-			constants.AppError:    constants.JSONMarshalingError,
+			constants.ErrorCode:   constants.JSONMarshalingErrorCode,
 			constants.ErrorDetail: err.Error(),
-		}).Error("Error marshaling JSON")
-		w.WriteHeader(http.StatusInternalServerError)
-		customerRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+		}).Error(constants.JSONMarshalingError)
+		completeRequest(http.StatusInternalServerError)
 		return
 	}
 
@@ -108,10 +151,10 @@ func (h handler) handleGetCustomers(path string) (interface{}, error) {
 	custs, err := customers.GetAllCustomers(h.db)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
-			constants.AppError:    constants.DBRowScanError,
+			constants.ErrorCode:   constants.DBRowScanErrorCode,
 			constants.ErrorDetail: err.Error(),
-		}).Error("Error retrieving customers")
-		return nil, errors.Annotate(err, "Error retrieving customers")
+		}).Error(constants.DBRowScanError)
+		return nil, errors.Annotate(err, "Error retrieving customers from DB")
 	}
 
 	h.logger.Debugf("GetAllCustomers() results: %+v", custs)
@@ -123,12 +166,16 @@ func (h handler) handleGetCustomers(path string) (interface{}, error) {
 	return custs, nil
 }
 
+// handleGetOneCustomer will return the customer referenced by the provided resource path,
+// an error if there was a problem retrieving the customer, or a nil customer and a nil
+// error if the customer was not found.
 func (h handler) handleGetOneCustomer(path string, pathNodes []string) (interface{}, error) {
 	if len(pathNodes) > 1 {
 		err := errors.Errorf(("expected 1 pathNode, got %d"), len(pathNodes))
 		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.MalformedURL,
 			constants.ErrorDetail: err.Error(),
-		}).Error("Unexpected number of pathNodes")
+		}).Error(constants.MalformedURL)
 		return nil, err
 	}
 
@@ -136,9 +183,9 @@ func (h handler) handleGetOneCustomer(path string, pathNodes []string) (interfac
 	if err != nil {
 		err := errors.Annotate(err, fmt.Sprintf("expected numeric pathNode, got %+v", id))
 		h.logger.WithFields(log.Fields{
-			constants.AppError:    constants.DBRowScanError,
+			constants.ErrorCode:   constants.MalformedURLErrorCode,
 			constants.ErrorDetail: err.Error(),
-		}).Error("Invalid PathNode")
+		}).Error(constants.MalformedURL)
 		return nil, err
 	}
 
@@ -146,10 +193,14 @@ func (h handler) handleGetOneCustomer(path string, pathNodes []string) (interfac
 	cust, err := customers.GetCustomer(h.db, id)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
-			constants.AppError:    constants.DBRowScanError,
+			constants.ErrorCode:   constants.DBRowScanErrorCode,
 			constants.ErrorDetail: err.Error(),
-		}).Error("Error retrieving customers")
+		}).Error(constants.DBRowScanError)
 		return nil, err
+	}
+	if cust == nil {
+		// client will deal with a nil (e.g., not found) customer
+		return nil, nil
 	}
 
 	h.logger.Debugf("GetCustomer() results: %+v", cust)

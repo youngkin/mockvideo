@@ -3,24 +3,36 @@ package constants
 //
 // **NOTE** When adding constants, please order them in alphabetical sequence
 //
+
+//
+// All constants below refer to the standard names for the various
+// fields used in log messages.
+//
 const (
-	// Application is a reference to the standard logging field "application"
-	AppError       string = "AppError"
 	Application    string = "Application"
 	ConfigFileName string = "ConfigFileName"
-	DBHost         string = "DBHost"
-	DBName         string = "DBName"
-	DBPort         string = "DBPort"
-	ErrorDetail    string = "ErrorDetail"
-	HostName       string = "HostName"
-	LogLevel       string = "LogLevel"
-	Method         string = "HTTPMethod"
-	Path           string = "URLPath"
-	Port           string = "Port"
+
+	DBHost string = "DBHost"
+	DBName string = "DBName"
+	DBPort string = "DBPort"
+
+	ErrorCode   string = "ErrorCode"
+	ErrorDetail string = "ErrorDetail"
+
+	HostName   string = "HostName"
+	HTTPStatus string = "HTTPStatus"
+
+	LogLevel string = "LogLevel"
+	Method   string = "HTTPMethod"
+
+	Path string = "URLPath"
+	Port string = "Port"
+
 	RemoteAddr     string = "RemoteAddr"
 	ServiceName    string = "ServiceName"
 	SecretsDirName string = "SecretsDirName"
-	TestName       string = "TestName"
+
+	TestName string = "TestName"
 )
 
 const (
