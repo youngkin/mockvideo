@@ -75,10 +75,10 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	if len(r.URL.Path) < 2 {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:  constants.MalformedURLErrorCode,
-			constants.HTTPStatus: http.StatusInternalServerError,
+			constants.HTTPStatus: http.StatusBadRequest,
 			constants.Path:       r.URL.Path,
 		}).Error(constants.MalformedURL)
-		completeRequest(http.StatusInternalServerError)
+		completeRequest(http.StatusBadRequest)
 		return
 
 	}
@@ -96,6 +96,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 		payload, err = h.handleGetOneCustomer(pathNodes[0], pathNodes[1:])
 	}
 
+	// TODO: Need to handle MalformedURL errors as StatusBadRequest vs. internalServerError
 	if err != nil {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.CustGETErrorCode,
@@ -173,7 +174,7 @@ func (h handler) handleGetOneCustomer(path string, pathNodes []string) (interfac
 	if len(pathNodes) > 1 {
 		err := errors.Errorf(("expected 1 pathNode, got %d"), len(pathNodes))
 		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.MalformedURL,
+			constants.ErrorCode:   constants.MalformedURLErrorCode,
 			constants.ErrorDetail: err.Error(),
 		}).Error(constants.MalformedURL)
 		return nil, err
@@ -193,9 +194,9 @@ func (h handler) handleGetOneCustomer(path string, pathNodes []string) (interfac
 	cust, err := customers.GetCustomer(h.db, id)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.DBRowScanErrorCode,
+			constants.ErrorCode:   constants.CustGETErrorCode,
 			constants.ErrorDetail: err.Error(),
-		}).Error(constants.DBRowScanError)
+		}).Error(constants.CustGETError)
 		return nil, err
 	}
 	if cust == nil {

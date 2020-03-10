@@ -145,7 +145,12 @@ func main() {
 	}
 	port = ":" + port
 
-	s := &http.Server{Addr: port, Handler: mux}
+	s := &http.Server{
+		Addr:              port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      5 * time.Second,
+	}
 
 	go func() {
 		logger.WithFields(log.Fields{
