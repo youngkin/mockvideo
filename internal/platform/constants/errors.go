@@ -72,7 +72,9 @@ const (
 	JSONMarshalingErrorCode
 	// MalformedURLErrorCode is the error code associated with MalformedURL
 	MalformedURLErrorCode
+)
 
+const (
 	//
 	// Customer related error codes start at 1000 and go to 1999
 	//
