@@ -74,8 +74,9 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	if len(r.URL.Path) < 2 {
 		h.logger.WithFields(log.Fields{
-			constants.ErrorCode: constants.MalformedURLErrorCode,
-			constants.Path:      r.URL.Path,
+			constants.ErrorCode:  constants.MalformedURLErrorCode,
+			constants.HTTPStatus: http.StatusInternalServerError,
+			constants.Path:       r.URL.Path,
 		}).Error(constants.MalformedURL)
 		completeRequest(http.StatusInternalServerError)
 		return
@@ -99,7 +100,8 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.CustGETErrorCode,
 			constants.ErrorDetail: err.Error(),
-		}).Error(constants.JSONMarshalingError)
+			constants.HTTPStatus:  http.StatusInternalServerError,
+		}).Error(constants.CustGETError)
 		completeRequest(http.StatusInternalServerError)
 		return
 	}
@@ -118,7 +120,8 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 		}
 	default:
 		h.logger.WithFields(log.Fields{
-			constants.ErrorCode: constants.CustTypeConversionErrorCode,
+			constants.ErrorCode:  constants.CustTypeConversionErrorCode,
+			constants.HTTPStatus: http.StatusInternalServerError,
 		}).Error(constants.CustTypeConversionError)
 		completeRequest(http.StatusInternalServerError)
 		return
@@ -135,6 +138,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.JSONMarshalingErrorCode,
+			constants.HTTPStatus:  http.StatusInternalServerError,
 			constants.ErrorDetail: err.Error(),
 		}).Error(constants.JSONMarshalingError)
 		completeRequest(http.StatusInternalServerError)
@@ -150,10 +154,6 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 func (h handler) handleGetCustomers(path string) (interface{}, error) {
 	custs, err := customers.GetAllCustomers(h.db)
 	if err != nil {
-		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.DBRowScanErrorCode,
-			constants.ErrorDetail: err.Error(),
-		}).Error(constants.DBRowScanError)
 		return nil, errors.Annotate(err, "Error retrieving customers from DB")
 	}
 
