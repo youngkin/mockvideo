@@ -86,24 +86,28 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	pathNodes = pathNodes[1:]
 
 	var (
-		payload interface{}
-		err     error
+		payload   interface{}
+		err       error
+		errReason int
 	)
 
 	if len(pathNodes) == 1 {
 		payload, err = h.handleGetCustomers(pathNodes[0])
 	} else {
-		payload, err = h.handleGetOneCustomer(pathNodes[0], pathNodes[1:])
+		payload, errReason, err = h.handleGetOneCustomer(pathNodes[0], pathNodes[1:])
 	}
 
-	// TODO: Need to handle MalformedURL errors as StatusBadRequest vs. internalServerError
 	if err != nil {
 		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.CustGETErrorCode,
+			constants.ErrorCode:   errReason,
 			constants.ErrorDetail: err.Error(),
 			constants.HTTPStatus:  http.StatusInternalServerError,
 		}).Error(constants.CustGETError)
-		completeRequest(http.StatusInternalServerError)
+		statusCode := http.StatusInternalServerError
+		if errReason == constants.MalformedURLErrorCode {
+			statusCode = http.StatusBadRequest
+		}
+		completeRequest(statusCode)
 		return
 	}
 
@@ -168,47 +172,35 @@ func (h handler) handleGetCustomers(path string) (interface{}, error) {
 }
 
 // handleGetOneCustomer will return the customer referenced by the provided resource path,
-// an error if there was a problem retrieving the customer, or a nil customer and a nil
-// error if the customer was not found.
-func (h handler) handleGetOneCustomer(path string, pathNodes []string) (interface{}, error) {
+// an error reason and error if there was a problem retrieving the customer, or a nil customer and a nil
+// error if the customer was not found. The error reason will only be relevant when the error
+// is non-nil.
+func (h handler) handleGetOneCustomer(path string, pathNodes []string) (cust interface{}, errReason int, err error) {
 	if len(pathNodes) > 1 {
 		err := errors.Errorf(("expected 1 pathNode, got %d"), len(pathNodes))
-		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.MalformedURLErrorCode,
-			constants.ErrorDetail: err.Error(),
-		}).Error(constants.MalformedURL)
-		return nil, err
+		return nil, constants.MalformedURLErrorCode, err
 	}
 
 	id, err := strconv.Atoi(pathNodes[0])
 	if err != nil {
 		err := errors.Annotate(err, fmt.Sprintf("expected numeric pathNode, got %+v", id))
-		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.MalformedURLErrorCode,
-			constants.ErrorDetail: err.Error(),
-		}).Error(constants.MalformedURL)
-		return nil, err
+		return nil, constants.MalformedURLErrorCode, err
 	}
 
-	// TODO Need to handle ErrNoRows situation which will result in a nil 'cust' being returned.
-	cust, err := customers.GetCustomer(h.db, id)
+	c, err := customers.GetCustomer(h.db, id)
 	if err != nil {
-		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.CustGETErrorCode,
-			constants.ErrorDetail: err.Error(),
-		}).Error(constants.CustGETError)
-		return nil, err
+		return nil, constants.CustGETErrorCode, err
 	}
-	if cust == nil {
+	if c == nil {
 		// client will deal with a nil (e.g., not found) customer
-		return nil, nil
+		return nil, 0, nil
 	}
 
-	h.logger.Debugf("GetCustomer() results: %+v", cust)
+	h.logger.Debugf("GetCustomer() results: %+v", c)
 
-	cust.HREF = "/" + path + "/" + strconv.Itoa(cust.ID)
+	c.HREF = "/" + path + "/" + strconv.Itoa(c.ID)
 
-	return cust, nil
+	return c, 0, nil
 }
 
 func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {

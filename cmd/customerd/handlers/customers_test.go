@@ -142,7 +142,7 @@ func TestGetCustomer(t *testing.T) {
 			shouldPass:         false,
 			setupFunc:          tests.DBCallNoExpectationsSetupHelper,
 			teardownFunc:       tests.DBCallTeardownHelper,
-			expectedHTTPStatus: http.StatusInternalServerError,
+			expectedHTTPStatus: http.StatusBadRequest,
 		},
 		{
 			testName:           "testGetCustomerURLNonNumericID",
@@ -150,7 +150,7 @@ func TestGetCustomer(t *testing.T) {
 			shouldPass:         false,
 			setupFunc:          tests.DBCallNoExpectationsSetupHelper,
 			teardownFunc:       tests.DBCallTeardownHelper,
-			expectedHTTPStatus: http.StatusInternalServerError,
+			expectedHTTPStatus: http.StatusBadRequest,
 		},
 		{
 			testName:           "testGetCustomerErrNoRow",
@@ -158,7 +158,7 @@ func TestGetCustomer(t *testing.T) {
 			shouldPass:         false,
 			setupFunc:          tests.DBCallNoExpectationsSetupHelper,
 			teardownFunc:       tests.DBCallTeardownHelper,
-			expectedHTTPStatus: http.StatusInternalServerError,
+			expectedHTTPStatus: http.StatusBadRequest,
 		},
 	}
 
