@@ -1,3 +1,7 @@
+### Copyright (c) 2020 Richard Youngkin. All rights reserved.
+### Use of this source code is governed by a MIT-style
+### license that can be found in the LICENSE file.
+
 apiVersion: v1
 appVersion: "1.0"
 description: A Helm chart for Kubernetes

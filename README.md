@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/youngkin/mockvideo.svg?branch=master)](https://travis-ci.org/youngkin/mockvideo) [![Go Report Card](https://goreportcard.com/badge/github.com/youngkin/mockvideo)](https://goreportcard.com/report/github.com/youngkin/mockvideo)
 
-This project is related to the blog series [Developing & Deploying Kubernetes Applications on a Raspberry Pi Cluster](https://medium.com/@RichYoungkin/develop-and-deploy-kubernetes-applications-on-a-raspberry-pi-cluster-fbd4d97a904c). Unlike the focus of that blog series, this application isn't meant to be deployed exclusively on a Raspberry Pi cluster. Rather, its intent is to showcase microservice development best practices with a relatively simple, but production-ready, application.
+This project is related to the blog series [Developing & Deploying Kubernetes Applications on a Raspberry Pi Cluster](https://medium.com/better-programming/develop-and-deploy-kubernetes-applications-on-a-raspberry-pi-cluster-fbd4d97a904c). Unlike the focus of that blog series, this application isn't meant to be deployed exclusively on a Raspberry Pi cluster. Rather, its intent is to showcase microservice development best practices with a relatively simple, but production-ready, application.
 
 - [Overview](#overview)
 - [Docker Respositories](#docker-respositories)
@@ -31,7 +31,7 @@ Current development is focused on:
   
     8. Best practices for all of the above.
 
-The project is still in the early phases of development. The initial and current goal is to complete all of the above aspects for the Customer microservice, specifically the ability to get customer information. Achieving this will provide the groundwork necessary to continue to the next phase.
+The project is still in the early phases of development. The initial and current goal is to complete all of the above aspects for the Customer microservice, specifically the ability to get customer information. Achieving this will provide the groundwork necessary to continue to the next phase. The primary code for the Customer service is located at [cmd/customerd](https://github.com/youngkin/mockvideo/tree/master/cmd/customerd) with some supporting code in the [internal package](https://github.com/youngkin/mockvideo/tree/master/internal), [helm](https://github.com/youngkin/mockvideo/tree/master/helm), [kubernetes](https://github.com/youngkin/mockvideo/tree/master/kubernetes), and [sql](https://github.com/youngkin/mockvideo/tree/master/sql) locations.
 
 The next phase will focus on the initial development of a second microservice. The purpose of this is to demonstrate the use of common code and to also demonstrate the use of Helm in a second microservice. These two goals will validate the package design and the ability to continue to develop and deploy multiple microservices on independent schedules.
 

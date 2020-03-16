@@ -1,3 +1,7 @@
+// Copyright (c) 2020 Richard Youngkin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package main
 
 import (
@@ -24,17 +28,17 @@ import (
 )
 
 // TODO:
-//	-2	TODO: Use error codes in errors (e.g., nil db pointer passed text message should also include the error code)
 //	-1	TODO: Use config struct
-//	0.	TODO: Rethink errors, see TODO in errors.go
-//	1.	TODO: HTTP connection configs (e.g., timeouts)
-//  1.  TODO: DB configs, use secrets for user name and password
 //	6.	TODO: Kube logging
 //	7.	TODO: ELK stack for logging
 //	10.	TODO: Create build system that will compile and create docker image
 //	11.	TODO: Use https
 //	4.	TODO: Config parms (configMap?), monitor for changes restarting if necessary
 //	5.	ONGOING: Prometheus
+//	-2	DONE: Use error codes in errors (e.g., nil db pointer passed text message should also include the error code)
+//	0.	DONE: Rethink errors, see TODO in errors.go
+//	1.	DONE: HTTP connection configs (e.g., timeouts)
+//  1.  DONE: DB configs, use secrets for user name and password
 //	2.	DONE: Don't panic, add error handling
 //	3.	DONE: Use logging levels
 //	8.	DONE: Graphana for Prometheus

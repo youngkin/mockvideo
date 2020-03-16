@@ -1,2 +1,10 @@
 .history
 cmd/customerd/customerd
+Mock_Video_Metrics_-_Grafana_and_Rich__bash__and_Notes.jpg
+Telegraf__system_dashboard_-_Grafana-5min-testrun.jpg
+Telegraf__system_dashboard_-_Grafana.jpg
+cmd/customerd/handlers/cover.out
+cmd/customerd/handlers/cp.out
+fakeConfigMap.yaml
+internal/customers/cover.out
+internal/customers/cp.out
