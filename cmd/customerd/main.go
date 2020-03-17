@@ -27,6 +27,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+/*
+This file, the 'main' function in particular, attempt to convey some best practices
+pertaining to:
+
+1. 	Obtaining configuration via command line flags and from the project's common 'config' capability.
+2.	Using structured logging for use with log view/search apps like ELK and Splunk
+3.	HTTP service configuration related to gracefully handling slow or unresponsive clients (e.g., write timeout)
+3.	Graceful shutdown in response to SIGTERM
+*/
+
 // TODO:
 //	-1	TODO: Use config struct
 //	6.	TODO: Kube logging
@@ -49,7 +59,6 @@ func main() {
 	configFileName := flag.String("configFile",
 		"/opt/mockvideo/custd/config/config",
 		"specifies the location of the custd service configuration")
-
 	secretsDir := flag.String("secretsDir",
 		"/opt/mockvideo/custd/secrets",
 		"specifies the location of the custd secrets")
@@ -135,12 +144,15 @@ func main() {
 	mux.Handle("/customers", customersHandler)
 	mux.Handle("/custdhealth", healthHandler)
 	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/sleeper", func(w http.ResponseWriter, r *http.Request) {
-		logger.WithFields(log.Fields{
-			constants.ServiceName: "sleeper",
-		}).Info("handling request")
-		time.Sleep(10 * time.Second)
-	})
+
+	// A simple endpoint to sleep for a period of time before responding.
+	// This is useful for testing SIGTERM handling. Uncomment as needed.
+	// mux.HandleFunc("/sleeper", func(w http.ResponseWriter, r *http.Request) {
+	// 	logger.WithFields(log.Fields{
+	// 		constants.ServiceName: "sleeper",
+	// 	}).Info("handling request")
+	// 	time.Sleep(10 * time.Second)
+	// })
 
 	port, ok := configs["port"]
 	if !ok {
@@ -182,10 +194,10 @@ func main() {
 // handleTermSignal provides a mechanism to catch SIGTERMs and gracefully
 // shutdown the service.
 func handleTermSignal(s *http.Server, logger *log.Entry, timeout int) {
-	term := make(chan os.Signal, 1)
-	signal.Notify(term, os.Interrupt, syscall.SIGTERM)
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 
-	<-term
+	<-sigs
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
 	defer cancel()

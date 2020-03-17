@@ -4,6 +4,16 @@
 
 package config
 
+/*
+This file demonstrates some best practices around:
+
+1.	The use of test fixtures. In the secrets tests, the package
+	'testdata' contains the fixture files used by these tests.
+2.	An implementation of the 'io.Reader' interface (via 'MockConfig')
+	to be used as a mock object used by the config functions under
+	test.
+*/
+
 import (
 	"io"
 	"reflect"

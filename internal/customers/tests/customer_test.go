@@ -2,7 +2,12 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package customers
+package tests
+
+/*
+This file and associated tests demostrate the use of DB mocking via DATA-DOG's
+'go-sqlmock' package.
+*/
 
 import (
 	"database/sql"

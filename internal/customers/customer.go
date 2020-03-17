@@ -4,11 +4,6 @@
 
 package customers
 
-// TODO
-//	1.	TODO: What to do about tests? cmd/customerd/handlers/customers_test.go already handles all the required
-//		TODO: tests, and it **NEEDS** to. Adding tests here would be a duplicate. But some of what's done here is
-//		arguably "whitebox" testing (e.g., Query error path testing such as 'sql.ErrNoRows' in 'GetCustomer()').
-//		Also, if testing this capability is left to clients, who knows if they're actually going to test?
 import (
 	"database/sql"
 	"fmt"

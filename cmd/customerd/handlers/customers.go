@@ -4,6 +4,23 @@
 
 package handlers
 
+/*
+This file attempts to showcase several best practices including:
+
+1.	Structured logging (i.e., 'logger.WithFields(...)')
+2.	Log 'hygiene'. Lower level functions don't log. The do return
+	errors when necessary and allow the calling function to decide
+	if it wants to log the error or propagate the error up the stack.
+3.	Error handling:
+	i.		Early returns
+	ii.		Use of error codes vs. text strings
+	iii.	Addition of info to errors to help better understand the
+			context the error occurred in.
+4. 	Request validation - e.g., verify proper URL path construction
+5.	Proper use of HTTP status codes
+6.	Use of Prometheus to capture metrics
+*/
+
 import (
 	"database/sql"
 	"encoding/json"

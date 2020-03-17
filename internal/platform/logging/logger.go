@@ -18,7 +18,6 @@ func init() {
 	log.SetFormatter(&log.JSONFormatter{})
 
 	// Output to stdout instead of the default stderr
-	// Can be any io.Writer, see below for File example
 	log.SetOutput(os.Stdout)
 
 	// Only log the DEBUG severity or above.

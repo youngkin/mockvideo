@@ -4,6 +4,16 @@
 
 package handlers
 
+/*
+These tests and supporting code demonstrate the following:
+
+1.  Table driven tests using 'Tests' and 'CustTests' structs and appropriate
+	test instance definitions using struct literals in each test function
+2.	Sub-tests. These are useful to get more detailed information from your test
+	executions.
+3.	The use of external helper functions for test setup and teardown.
+*/
+
 import (
 	"bytes"
 	"database/sql"
