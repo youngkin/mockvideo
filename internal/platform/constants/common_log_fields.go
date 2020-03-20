@@ -40,6 +40,6 @@ const (
 )
 
 const (
-	// Customer is the standard name for the customer service
-	Customer string = "customer"
+	// User is the standard name for the user service
+	User string = "user"
 )

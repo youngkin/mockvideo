@@ -36,14 +36,14 @@ const (
 	MalformedURL = "Malformed URL"
 
 	//
-	// Customer related error codes start at 1000 and go to 1999
+	// User related error codes start at 1000 and go to 1999
 	//
 
-	// CustTypeConversionError indicates that the payload returned from GET /customers/{id} could
-	// not be converted to either a Customers (/customers) or Customer (/customers/{id}) type
-	CustTypeConversionError = "Unable to convert payload to Customer(s) type"
-	// CustGETError indicates that GET /customers or GET /customers/{id} failed in some way
-	CustGETError = "GET /customers or GET /customers/{id} failed"
+	// UserTypeConversionError indicates that the payload returned from GET /users/{id} could
+	// not be converted to either a Users (/users) or User (/users/{id}) type
+	UserTypeConversionError = "Unable to convert payload to User(s) type"
+	// UserGETError indicates that GET /users or GET /users/{id} failed in some way
+	UserGETError = "GET /users or GET /users/{id} failed"
 )
 
 const (
@@ -77,11 +77,11 @@ const (
 
 const (
 	//
-	// Customer related error codes start at 1000 and go to 1999
+	// User related error codes start at 1000 and go to 1999
 	//
 
-	// CustTypeConversionErrorCode is the error code associated with CustTypeConversion
-	CustTypeConversionErrorCode = iota + 1000
-	// CustGETErrorCode is the error code associated with CustGETError
-	CustGETErrorCode
+	// UserTypeConversionErrorCode is the error code associated with UserTypeConversion
+	UserTypeConversionErrorCode = iota + 1000
+	// UserGETErrorCode is the error code associated with UserGETError
+	UserGETErrorCode
 )

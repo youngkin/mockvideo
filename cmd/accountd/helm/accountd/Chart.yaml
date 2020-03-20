@@ -1,0 +1,14 @@
+### Copyright (c) 2020 Richard Youngkin. All rights reserved.
+### Use of this source code is governed by a MIT-style
+### license that can be found in the LICENSE file.
+
+apiVersion: v1
+
+# The version of the app, may be the same as the {{ .Values.image.tag }}, but doesn't have to be
+appVersion: "0.1.0"
+
+description: Helm chart and related files for the accountd service
+name: accountd
+
+# The version of this chart
+version: 0.1.0
