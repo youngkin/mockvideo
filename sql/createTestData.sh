@@ -1,1 +1,1 @@
-mysql -uadmin -hlocalhost -p2girls1cat mockvideo < ./testdata.sql
+mysql -uadmin -h10.0.0.100 -p2girls1cat mockvideo < ./testdata.sql

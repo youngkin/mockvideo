@@ -1,1 +1,0 @@
-mysql -uadmin -hlocalhost -p2girls1cat < ./create.sql

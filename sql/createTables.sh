@@ -1,0 +1,1 @@
+mysql -uadmin -h10.0.0.100 -p2girls1cat < ./create.sql
