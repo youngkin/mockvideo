@@ -1,0 +1,1 @@
+mysql -uadmin -hlocalhost -p2girls1cat mockvideo < ./testdata.sql

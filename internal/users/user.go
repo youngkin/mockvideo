@@ -11,15 +11,27 @@ import (
 	"github.com/juju/errors"
 )
 
+// UserRole indicates what role a User can take regarding account actions (e.g., add a service)
+type UserRole int
+
+const (
+	// Primary user role can do anything on the account
+	Primary UserRole = iota
+	// Unrestricted user role can do anything except billing
+	Unrestricted
+	// Restricted can't do much of anything, nothing service related, nothing billing related, basically just email
+	Restricted
+)
+
 // User represents the data about a user
 type User struct {
-	AccountID string `json:"AccountID"`
-	HREF      string `json:"href"`
-	ID        int    `json:"ID"`
-	Name      string `json:"Name"`
-	EMail     string `json:"eMail"`
-	Role      string `json:"role"`
-	password  string //base64 encoded and encrypted
+	AccountID int      `json:"AccountID"`
+	HREF      string   `json:"href"`
+	ID        int      `json:"ID"`
+	Name      string   `json:"Name"`
+	EMail     string   `json:"eMail"`
+	Role      UserRole `json:"role"`
+	password  string   //base64 encoded and encrypted
 }
 
 // Users is a collection (slice) of User

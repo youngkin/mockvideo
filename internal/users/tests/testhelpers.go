@@ -21,8 +21,8 @@ func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, users.Users) {
 	}
 
 	rows := sqlmock.NewRows([]string{"accountid", "id", "name", "email", "role"}).
-		AddRow("Xya2", 1, "porgy tirebiter", "porgytirebiter@email.com", "owner").
-		AddRow("Yax21", 2, "mickey dolenz", "mdolenz@themonkeys.com", "restricted")
+		AddRow(0, 1, "porgy tirebiter", "porgytirebiter@email.com", users.Primary).
+		AddRow(0, 2, "mickey dolenz", "mdolenz@themonkeys.com", users.Restricted)
 
 	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user").
 		WillReturnRows(rows)
@@ -30,18 +30,18 @@ func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, users.Users) {
 	expected := users.Users{
 		Users: []*users.User{
 			{
-				AccountID: "Xya2",
+				AccountID: 0,
 				ID:        1,
 				Name:      "porgy tirebiter",
 				EMail:     "porgytirebiter@email.com",
-				Role:      "owner",
+				Role:      users.Primary,
 			},
 			{
-				AccountID: "Yax21",
+				AccountID: 0,
 				ID:        2,
 				Name:      "mickey dolenz",
 				EMail:     "mdolenz@themonkeys.com",
-				Role:      "restricted",
+				Role:      users.Restricted,
 			},
 		},
 	}
@@ -94,17 +94,17 @@ func GetUserSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *users.User) {
 	}
 
 	rows := sqlmock.NewRows([]string{"accountid", "id", "name", "email", "role"}).
-		AddRow("Xya2", 1, "porgy tirebiter", "porgytirebiter@email.com", "owner")
+		AddRow(5, 1, "porgy tirebiter", "porgytirebiter@email.com", users.Primary)
 
 	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id=1").
 		WillReturnRows(rows)
 
 	expected := users.User{
-		AccountID: "Xya2",
+		AccountID: 5,
 		ID:        1,
 		Name:      "porgy tirebiter",
 		EMail:     "porgytirebiter@email.com",
-		Role:      "owner",
+		Role:      users.Primary,
 	}
 
 	return db, mock, &expected
