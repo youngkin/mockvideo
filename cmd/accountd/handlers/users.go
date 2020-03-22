@@ -77,13 +77,9 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
-	h.logger.WithFields(log.Fields{
-		constants.Method:     r.Method,
-		constants.HostName:   r.URL.Host,
-		constants.Path:       r.URL.Path,
-		constants.RemoteAddr: r.RemoteAddr,
-	}).Info("HTTP request received")
+	h.logRqstRcvd(r)
 	start := time.Now()
+
 	completeRequest := func(httpStatus int) {
 		w.WriteHeader(httpStatus)
 		userRqstDur.WithLabelValues(strconv.Itoa(httpStatus)).
@@ -91,24 +87,20 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Expecting a URL.Path like '/users' or '/users/{id}'
-	pathNodes := strings.Split(r.URL.Path, "/")
-
-	if len(r.URL.Path) < 2 {
+	pathNodes, err := h.getURLPathNodes(r.URL.Path)
+	if err != nil {
 		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:  constants.MalformedURLErrorCode,
-			constants.HTTPStatus: http.StatusBadRequest,
-			constants.Path:       r.URL.Path,
+			constants.ErrorCode:   constants.MalformedURLErrorCode,
+			constants.HTTPStatus:  http.StatusBadRequest,
+			constants.Path:        r.URL.Path,
+			constants.ErrorDetail: err,
 		}).Error(constants.MalformedURL)
 		completeRequest(http.StatusBadRequest)
 		return
-
 	}
-	// Strip off empty string that replaces the first '/' in '/customer'
-	pathNodes = pathNodes[1:]
 
 	var (
 		payload   interface{}
-		err       error
 		errReason int
 	)
 
@@ -123,7 +115,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 			constants.ErrorCode:   errReason,
 			constants.ErrorDetail: err.Error(),
 			constants.HTTPStatus:  http.StatusInternalServerError,
-		}).Error(constants.UserGETError)
+		}).Error(constants.UserRqstError)
 		statusCode := http.StatusInternalServerError
 		if errReason == constants.MalformedURLErrorCode {
 			statusCode = http.StatusBadRequest
@@ -210,7 +202,7 @@ func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interfa
 
 	c, err := users.GetUser(h.db, id)
 	if err != nil {
-		return nil, constants.UserGETErrorCode, err
+		return nil, constants.UserRqstErrorCode, err
 	}
 	if c == nil {
 		// client will deal with a nil (e.g., not found) customer
@@ -225,12 +217,109 @@ func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interfa
 }
 
 func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Not implemented")
-	w.WriteHeader(http.StatusTeapot)
+	h.logRqstRcvd(r)
+	start := time.Now()
+
+	//
+	// Get user out of request body and validate
+	//
+	d := json.NewDecoder(r.Body)
+	d.DisallowUnknownFields() // error if user sends extra data
+	user := users.User{}
+	err := d.Decode(&user)
+	if err != nil {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.JSONDecodingErrorCode,
+			constants.HTTPStatus:  http.StatusBadRequest,
+			constants.ErrorDetail: err.Error(),
+		}).Error(constants.JSONDecodingError)
+		w.WriteHeader(http.StatusBadRequest)
+		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		return
+	}
+	if d.More() {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.JSONDecodingErrorCode,
+			constants.ErrorDetail: err.Error(),
+		}).Warn(constants.JSONDecodingError)
+	}
+
+	//
+	// TODO: Write user to DB and get ID
+	// Is this an insert or update?
+	//
+	// Expecting a URL.Path like '/users' or '/users/{id}'
+	pathNodes, err := h.getURLPathNodes(r.URL.Path)
+	if err != nil {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.MalformedURLErrorCode,
+			constants.HTTPStatus:  http.StatusBadRequest,
+			constants.Path:        r.URL.Path,
+			constants.ErrorDetail: err,
+		}).Error(constants.MalformedURL)
+		w.WriteHeader(http.StatusBadRequest)
+		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		return
+	}
+
+	var userID int
+	if len(pathNodes) == 1 {
+		userID, err = h.insertUser(user)
+	} else {
+		userID, err = h.updateUser(user)
+	}
+	if err != nil {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.DBUpSertErrorCode,
+			constants.HTTPStatus:  http.StatusInternalServerError,
+			constants.Path:        r.URL.Path,
+			constants.ErrorDetail: err,
+		}).Error(constants.DBUpSertError)
+		w.WriteHeader(http.StatusInternalServerError)
+		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+		return
+	}
+
+	//
+	// Wrap up request
+	//
+	w.Header().Add("Location", fmt.Sprintf("/users/%d", userID))
+	w.WriteHeader(http.StatusCreated)
+
+	userRqstDur.WithLabelValues(strconv.Itoa(http.StatusCreated)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-// New returns a *http.Handler configured with a database connection
-func New(db *sql.DB, logger *log.Entry) (http.Handler, error) {
+func (h handler) insertUser(u users.User) (int, error) {
+	// TODO: Implement
+	return 1, nil
+}
+
+func (h handler) updateUser(u users.User) (int, error) {
+	// TODO: Implement
+	return u.ID, nil
+}
+
+func (h handler) logRqstRcvd(r *http.Request) {
+	h.logger.WithFields(log.Fields{
+		constants.Method:     r.Method,
+		constants.HostName:   r.URL.Host,
+		constants.Path:       r.URL.Path,
+		constants.RemoteAddr: r.RemoteAddr,
+	}).Info("HTTP request received")
+}
+
+func (h handler) getURLPathNodes(path string) ([]string, error) {
+	pathNodes := strings.Split(path, "/")
+
+	if len(path) < 2 {
+		return nil, errors.New(constants.UserRqstError)
+	}
+	// Strip off empty string that replaces the first '/' in '/users'
+	return pathNodes[1:], nil
+}
+
+// NewUserHandler returns a *http.Handler configured with a database connection
+func NewUserHandler(db *sql.DB, logger *log.Entry) (http.Handler, error) {
 	if db == nil {
 		return nil, errors.New("non-nil sql.DB connection required")
 	}

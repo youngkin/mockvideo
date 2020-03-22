@@ -31,7 +31,7 @@ type User struct {
 	Name      string   `json:"Name"`
 	EMail     string   `json:"eMail"`
 	Role      UserRole `json:"role"`
-	password  string   //base64 encoded and encrypted
+	Password  string   `json:"password,omitempty"`
 }
 
 // Users is a collection (slice) of User

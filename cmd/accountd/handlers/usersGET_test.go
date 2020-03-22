@@ -25,8 +25,6 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/internal/platform/logging"
 	"github.com/youngkin/mockvideo/internal/users"
 	tests "github.com/youngkin/mockvideo/internal/users/tests"
 )
@@ -48,20 +46,20 @@ type CustTests struct {
 }
 
 // logger is used to control code-under-test logging behavior
-var logger *log.Entry
+// var logger *log.Entry
 
-func init() {
-	logger = logging.GetLogger()
-	// Uncomment for more verbose logging
-	// logger.Logger.SetLevel(log.DebugLevel)
-	// Supress all application logging
-	logger.Logger.SetLevel(log.PanicLevel)
-	// Uncomment for non-tty logging
-	// log.SetFormatter(&log.TextFormatter{
-	// 	DisableColors: true,
-	// 	FullTimestamp: true,
-	//  })
-}
+// func init() {
+// 	logger = logging.GetLogger()
+// 	// Uncomment for more verbose logging
+// 	// logger.Logger.SetLevel(log.DebugLevel)
+// 	// Supress all application logging
+// 	logger.Logger.SetLevel(log.PanicLevel)
+// 	// Uncomment for non-tty logging
+// 	// log.SetFormatter(&log.TextFormatter{
+// 	// 	DisableColors: true,
+// 	// 	FullTimestamp: true,
+// 	//  })
+// }
 
 func TestGetAllUsers(t *testing.T) {
 	tcs := []Tests{
@@ -98,7 +96,7 @@ func TestGetAllUsers(t *testing.T) {
 				user.HREF = "/users/" + strconv.Itoa(user.ID)
 			}
 
-			userHandler, err := New(db, logger)
+			userHandler, err := NewUserHandler(db, logger)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
@@ -186,7 +184,7 @@ func TestGetUser(t *testing.T) {
 				expected.HREF = tc.url
 			}
 
-			userHandler, err := New(db, logger)
+			userHandler, err := NewUserHandler(db, logger)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
 			}

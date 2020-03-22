@@ -26,8 +26,9 @@ const (
 	HostName   string = "HostName"
 	HTTPStatus string = "HTTPStatus"
 
-	LogLevel string = "LogLevel"
-	Method   string = "HTTPMethod"
+	LogLevel      string = "LogLevel"
+	Method        string = "HTTPMethod"
+	MessageDetail string = "MsgDetail"
 
 	Path string = "URLPath"
 	Port string = "Port"

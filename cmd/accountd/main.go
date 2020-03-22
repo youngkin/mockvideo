@@ -130,17 +130,17 @@ func main() {
 	//
 	// Setup endpoints and start service
 	//
-	usersHandler, err := handlers.New(db, logger)
+	usersHandler, err := handlers.NewUserHandler(db, logger)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,
 			constants.ErrorDetail: err.Error(),
 		}).Fatal(constants.UnableToCreateHTTPHandler)
 	}
+
 	healthHandler := http.HandlerFunc(handlers.HealthFunc)
 
 	mux := http.NewServeMux()
-
 	mux.Handle("/users", usersHandler)
 	mux.Handle("/accountdhealth", healthHandler)
 	mux.Handle("/metrics", promhttp.Handler())
