@@ -52,7 +52,7 @@ type CustTests struct {
 // 	logger = logging.GetLogger()
 // 	// Uncomment for more verbose logging
 // 	// logger.Logger.SetLevel(log.DebugLevel)
-// 	// Supress all application logging
+// 	// Suppress all application logging
 // 	logger.Logger.SetLevel(log.PanicLevel)
 // 	// Uncomment for non-tty logging
 // 	// log.SetFormatter(&log.TextFormatter{

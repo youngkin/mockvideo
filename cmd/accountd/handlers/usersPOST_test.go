@@ -21,8 +21,11 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DATA-DOG/go-sqlmock"
 	log "github.com/sirupsen/logrus"
 	logging "github.com/youngkin/mockvideo/internal/platform/logging"
+	"github.com/youngkin/mockvideo/internal/users"
+	tests "github.com/youngkin/mockvideo/internal/users/tests"
 )
 
 // logger is used to control code-under-test logging behavior
@@ -32,7 +35,7 @@ func init() {
 	logger = logging.GetLogger()
 	// Uncomment for more verbose logging
 	// logger.Logger.SetLevel(log.DebugLevel)
-	// Supress all application logging
+	// Suppress all application logging
 	logger.Logger.SetLevel(log.PanicLevel)
 	// Uncomment for non-tty logging
 	// log.SetFormatter(&log.TextFormatter{
@@ -48,6 +51,9 @@ type POSTTest struct {
 	updateResourceID   string
 	expectedResourceID string
 	postData           string
+	user               users.User
+	setupFunc          func(*testing.T, users.User) (*sql.DB, sqlmock.Sqlmock)
+	teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 }
 
 func TestPOSTUser(t *testing.T) {
@@ -66,6 +72,15 @@ func TestPOSTUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
+			user: users.User{
+				AccountID: 1,
+				Name:      "mickey dolenz",
+				EMail:     "mickeyd@gmail.com",
+				Role:      1,
+				Password:  "myawesomepassword",
+			},
+			setupFunc:    tests.DBInsertSetupHelper,
+			teardownFunc: tests.DBCallTeardownHelper,
 		},
 		{
 			testName:           "testUpdateUserSuccess",
@@ -83,13 +98,24 @@ func TestPOSTUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
+			user: users.User{
+				ID:        1,
+				AccountID: 2,
+				Name:      "mickey dolenz",
+				EMail:     "mickeyd@gmail.com",
+				Role:      1,
+				Password:  "myawesomepassword",
+			},
+			setupFunc:    tests.DBUpdateSetupHelper,
+			teardownFunc: tests.DBCallTeardownHelper,
 		},
 	}
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			// TODO: '&sql.DB{}' is a hack, will eventually need a real/mock db
-			postHandler, err := NewUserHandler(&sql.DB{}, logger)
+			db, mock := tc.setupFunc(t, tc.user)
+
+			postHandler, err := NewUserHandler(db, logger)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
 			}
@@ -114,6 +140,8 @@ func TestPOSTUser(t *testing.T) {
 			if status != tc.expectedHTTPStatus {
 				t.Errorf("expected StatusCode = %d, got %d", tc.expectedHTTPStatus, status)
 			}
+
+			tc.teardownFunc(t, mock)
 		})
 	}
 }

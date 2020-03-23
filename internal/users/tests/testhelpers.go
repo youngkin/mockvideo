@@ -49,6 +49,45 @@ func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, users.Users) {
 	return db, mock, expected
 }
 
+// DBInsertSetupHelper encapsulates the common code needed to setup a mock User insert
+func DBInsertSetupHelper(t *testing.T, u users.User) (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	mock.ExpectExec("INSERT INTO user").WithArgs(u.AccountID, u.Name, u.EMail, u.Role, u.Password).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	return db, mock
+}
+
+// DBInsertErrorSetupHelper encapsulates the common code needed to mock a user insert error
+func DBInsertErrorSetupHelper(t *testing.T, u users.User) (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	mock.ExpectExec("INSERT INTO user").WithArgs(u.AccountID, u.Name, u.EMail, u.Role, u.Password).
+		WillReturnError(fmt.Errorf("some error"))
+
+	return db, mock
+}
+
+// DBUpdateSetupHelper encapsulates the common code needed to setup a mock User insert
+func DBUpdateSetupHelper(t *testing.T, u users.User) (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	// mock.ExpectExec("UPDATE user").WithArgs(u.AccountID, u.Name, u.EMail, u.Role, u.Password).
+	// 	WillReturnResult(sqlmock.NewResult(1, 1))
+
+	return db, mock
+}
+
 // DBCallQueryErrorSetupHelper encapsulates common coded needed to mock DB query failures
 func DBCallQueryErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, users.Users) {
 	db, mock, err := sqlmock.New()
@@ -96,8 +135,8 @@ func GetUserSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *users.User) {
 	rows := sqlmock.NewRows([]string{"accountid", "id", "name", "email", "role"}).
 		AddRow(5, 1, "porgy tirebiter", "porgytirebiter@email.com", users.Primary)
 
-	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id=1").
-		WillReturnRows(rows)
+	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user").
+		WithArgs(1).WillReturnRows(rows)
 
 	expected := users.User{
 		AccountID: 5,
@@ -117,8 +156,8 @@ func DBUserErrNoRowsSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *users.
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
 	}
 
-	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id=1").
-		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user").
+		WithArgs(1).WillReturnError(sql.ErrNoRows)
 
 	return db, mock, nil
 }
@@ -130,8 +169,8 @@ func DBUserOtherErrSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *users.U
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
 	}
 
-	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id=1").
-		WillReturnError(sql.ErrConnDone)
+	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user").
+		WithArgs(1).WillReturnError(sql.ErrConnDone)
 
 	return db, mock, nil
 }

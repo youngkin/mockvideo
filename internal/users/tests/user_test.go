@@ -31,6 +31,14 @@ type SingleCustTests struct {
 	setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *users.User)
 	teardownFunc func(*testing.T, sqlmock.Sqlmock)
 }
+type InsertCustTests struct {
+	testName       string
+	user           users.User
+	expectedUserID int64
+	shouldPass     bool
+	setupFunc      func(*testing.T, users.User) (*sql.DB, sqlmock.Sqlmock)
+	teardownFunc   func(*testing.T, sqlmock.Sqlmock)
+}
 
 func TestGetAllCustomers(t *testing.T) {
 	tests := []AllCustsTests{
@@ -130,6 +138,55 @@ func TestGetCustomer(t *testing.T) {
 			}
 			if *expected != *actual {
 				t.Errorf("expected %+v , got %+v", expected, actual)
+			}
+			tc.teardownFunc(t, mock)
+		})
+	}
+}
+
+func TestInsertCustomer(t *testing.T) {
+	tests := []InsertCustTests{
+		{
+			testName: "testInsertCustomerSuccess",
+			user: users.User{
+				AccountID: 1,
+				Name:      "mama cass",
+				EMail:     "mama@gmail.com",
+				Role:      0,
+				Password:  "myawsomepassword",
+			},
+			expectedUserID: 1,
+			shouldPass:     true,
+			setupFunc:      DBInsertSetupHelper,
+			teardownFunc:   DBCallTeardownHelper,
+		},
+		{
+			testName: "testInsertCustomererror",
+			user: users.User{
+				AccountID: 1,
+				Name:      "mama cass",
+				EMail:     "mama@gmail.com",
+				Role:      0,
+				Password:  "myawsomepassword",
+			},
+			expectedUserID: 0,
+			shouldPass:     false,
+			setupFunc:      DBInsertErrorSetupHelper,
+			teardownFunc:   DBCallTeardownHelper,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.testName, func(t *testing.T) {
+			db, mock := tc.setupFunc(t, tc.user)
+			defer db.Close()
+
+			uID, err := users.InsertUser(db, tc.user)
+
+			validateExpectedErrors(t, err, tc.shouldPass)
+
+			if tc.expectedUserID != uID {
+				t.Errorf("expected %+v , got %+v", tc.expectedUserID, uID)
 			}
 			tc.teardownFunc(t, mock)
 		})

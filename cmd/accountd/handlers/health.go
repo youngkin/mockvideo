@@ -8,7 +8,7 @@ import "net/http"
 
 /*
 Always create at least a simple 'health' endpoint. A more sophisticated health endpoint could
-provide metrics associated number of succesful and unsucessful service requests as well as
+provide metrics associated number of successful and unsuccessful service requests as well as
 perhaps an overall health indication taken from several, service appropriate, metrics.
 */
 

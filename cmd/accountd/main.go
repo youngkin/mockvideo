@@ -177,7 +177,7 @@ func main() {
 			constants.DBHost:         configs["dbHost"],
 			constants.DBPort:         configs["dbPort"],
 			constants.DBName:         configs["dbName"],
-		}).Info("customerd service starting")
+		}).Info("accountd service starting")
 
 		if err := s.ListenAndServe(); err != http.ErrServerClosed {
 			logger.Fatal(err)

@@ -23,6 +23,12 @@ const (
 	Restricted
 )
 
+var (
+	getAllUsersQuery = "SELECT accountID, id, name, email, role FROM user"
+	getUserQuery     = "SELECT accountID, id, name, email, role FROM user WHERE id = ?"
+	insertUserStmt   = "INSERT INTO user (accountID, name, email, role, password) VALUES (?, ?, ?, ?, ?)"
+)
+
 // User represents the data about a user
 type User struct {
 	AccountID int      `json:"AccountID"`
@@ -41,7 +47,7 @@ type Users struct {
 
 // GetAllUsers will return all customers known to the application
 func GetAllUsers(db *sql.DB) (*Users, error) {
-	results, err := db.Query("SELECT accountID, id, name, email, role FROM user")
+	results, err := db.Query(getAllUsersQuery)
 	if err != nil {
 		return &Users{}, errors.Annotate(err, "error querying DB")
 	}
@@ -68,8 +74,7 @@ func GetAllUsers(db *sql.DB) (*Users, error) {
 // GetUser will return the user identified by 'id' or a nil user if there
 // wasn't a matching user.
 func GetUser(db *sql.DB, id int) (*User, error) {
-	q := fmt.Sprintf("SELECT accountID, id, name, email, role FROM user WHERE id=%d", id)
-	row := db.QueryRow(q)
+	row := db.QueryRow(getUserQuery, id)
 	user := &User{}
 	err := row.Scan(&user.AccountID,
 		&user.ID,
@@ -86,9 +91,54 @@ func GetUser(db *sql.DB, id int) (*User, error) {
 	return user, nil
 }
 
+// InsertUser takes the provided user data, inserts it into the db, and returns the newly created user ID
+func InsertUser(db *sql.DB, u User) (int64, error) {
+	err := validateUser(u)
+	if err != nil {
+		return 0, errors.Annotate(err, "User validation failure")
+	}
+
+	r, err := db.Exec(insertUserStmt, u.AccountID, u.Name, u.EMail, u.Role, u.Password)
+	if err != nil {
+		return 0, errors.Annotate(err, fmt.Sprintf("error inserting user into the database: %+v", u))
+	}
+	id, err := r.LastInsertId()
+	if err != nil {
+		return 0, errors.Annotate(err, "error getting user ID")
+	}
+
+	return id, nil
+}
+
 // IsAuthorizedUser will return true if the encryptedPassword matches the
 // User's real (i.e., unencrypted) password.
 func IsAuthorizedUser(db *sql.DB, id int, encryptedPassword []byte) (bool, error) {
 	// TODO: implement
 	return false, errors.NewNotImplemented(nil, "Not implemented")
+}
+
+func validateUser(u User) error {
+	errMsg := ""
+
+	if u.AccountID == 0 {
+		errMsg = errMsg + "AccountID cannot be 0"
+	}
+	if len(u.EMail) == 0 {
+		errMsg = errMsg + "; Email address must be populated"
+	}
+	if len(u.Name) == 0 {
+		errMsg = errMsg + "; Name must be populated"
+	}
+	if len(u.Password) == 0 {
+		errMsg = errMsg + "; Password must be populated"
+	}
+	if u.Role != Primary && u.Role != Restricted && u.Role != Unrestricted {
+		errMsg = errMsg + fmt.Sprintf("; Invalid Role. Role must be one of %d, %d, or %d, got %d",
+			Primary, Restricted, Unrestricted, u.Role)
+	}
+
+	if len(errMsg) > 0 {
+		return errors.New(errMsg)
+	}
+	return nil
 }

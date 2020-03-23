@@ -262,7 +262,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userID int
+	var userID int64
 	if len(pathNodes) == 1 {
 		userID, err = h.insertUser(user)
 	} else {
@@ -289,14 +289,17 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	userRqstDur.WithLabelValues(strconv.Itoa(http.StatusCreated)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) insertUser(u users.User) (int, error) {
-	// TODO: Implement
-	return 1, nil
+func (h handler) insertUser(u users.User) (int64, error) {
+	id, err := users.InsertUser(h.db, u)
+	if err != nil {
+		return -1, errors.Annotate(err, "error inserting user")
+	}
+	return id, nil
 }
 
-func (h handler) updateUser(u users.User) (int, error) {
+func (h handler) updateUser(u users.User) (int64, error) {
 	// TODO: Implement
-	return u.ID, nil
+	return int64(u.ID), nil
 }
 
 func (h handler) logRqstRcvd(r *http.Request) {

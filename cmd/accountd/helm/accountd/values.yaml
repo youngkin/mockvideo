@@ -10,7 +10,7 @@ replicaCount: 4
 
 image:
   repository: ryoungkin/accountd
-  tag: 0.1.0
+  tag: 0.1.3
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -36,7 +36,7 @@ ingress:
     traefik.frontend.rule.type: PathPrefix
   }
   hosts:
-    - host: accountsd.kube
+    - host: accountd.kube
       paths: [/users,/accountsdhealth,/metrics,/sleeper]
 
   tls: []
