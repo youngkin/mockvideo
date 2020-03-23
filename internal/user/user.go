@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package users
+package user
 
 import (
 	"database/sql"
@@ -11,12 +11,12 @@ import (
 	"github.com/juju/errors"
 )
 
-// UserRole indicates what role a User can take regarding account actions (e.g., add a service)
-type UserRole int
+// Role indicates what role a User can take regarding account actions (e.g., add a service)
+type Role int
 
 const (
 	// Primary user role can do anything on the account
-	Primary UserRole = iota
+	Primary Role = iota
 	// Unrestricted user role can do anything except billing
 	Unrestricted
 	// Restricted can't do much of anything, nothing service related, nothing billing related, basically just email
@@ -31,13 +31,13 @@ var (
 
 // User represents the data about a user
 type User struct {
-	AccountID int      `json:"AccountID"`
-	HREF      string   `json:"href"`
-	ID        int      `json:"ID"`
-	Name      string   `json:"Name"`
-	EMail     string   `json:"eMail"`
-	Role      UserRole `json:"role"`
-	Password  string   `json:"password,omitempty"`
+	AccountID int    `json:"accountid"`
+	HREF      string `json:"href"`
+	ID        int    `json:"id"`
+	Name      string `json:"name"`
+	EMail     string `json:"email"`
+	Role      Role   `json:"role"`
+	Password  string `json:"password,omitempty"`
 }
 
 // Users is a collection (slice) of User
@@ -52,23 +52,23 @@ func GetAllUsers(db *sql.DB) (*Users, error) {
 		return &Users{}, errors.Annotate(err, "error querying DB")
 	}
 
-	users := Users{}
+	us := Users{}
 	for results.Next() {
-		var user User
+		var u User
 
-		err = results.Scan(&user.AccountID,
-			&user.ID,
-			&user.Name,
-			&user.EMail,
-			&user.Role)
+		err = results.Scan(&u.AccountID,
+			&u.ID,
+			&u.Name,
+			&u.EMail,
+			&u.Role)
 		if err != nil {
 			return &Users{}, errors.Annotate(err, "error scanning result set")
 		}
 
-		users.Users = append(users.Users, &user)
+		us.Users = append(us.Users, &u)
 	}
 
-	return &users, nil
+	return &us, nil
 }
 
 // GetUser will return the user identified by 'id' or a nil user if there

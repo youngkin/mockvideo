@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package handlers
+package users
 
 /*
 These tests and supporting code demonstrate the following:
@@ -24,8 +24,8 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	log "github.com/sirupsen/logrus"
 	logging "github.com/youngkin/mockvideo/internal/platform/logging"
-	"github.com/youngkin/mockvideo/internal/users"
-	tests "github.com/youngkin/mockvideo/internal/users/tests"
+	user "github.com/youngkin/mockvideo/internal/user"
+	tests "github.com/youngkin/mockvideo/internal/user/tests"
 )
 
 // logger is used to control code-under-test logging behavior
@@ -51,8 +51,8 @@ type POSTTest struct {
 	updateResourceID   string
 	expectedResourceID string
 	postData           string
-	user               users.User
-	setupFunc          func(*testing.T, users.User) (*sql.DB, sqlmock.Sqlmock)
+	user               user.User
+	setupFunc          func(*testing.T, user.User) (*sql.DB, sqlmock.Sqlmock)
 	teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 }
 
@@ -72,7 +72,7 @@ func TestPOSTUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: users.User{
+			user: user.User{
 				AccountID: 1,
 				Name:      "mickey dolenz",
 				EMail:     "mickeyd@gmail.com",
@@ -98,7 +98,7 @@ func TestPOSTUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: users.User{
+			user: user.User{
 				ID:        1,
 				AccountID: 2,
 				Name:      "mickey dolenz",

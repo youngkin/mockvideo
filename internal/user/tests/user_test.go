@@ -15,28 +15,28 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/youngkin/mockvideo/internal/users"
+	user "github.com/youngkin/mockvideo/internal/user"
 )
 
 type AllCustsTests struct {
 	testName     string
 	shouldPass   bool
-	setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, users.Users)
+	setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, user.Users)
 	teardownFunc func(*testing.T, sqlmock.Sqlmock)
 }
 type SingleCustTests struct {
 	testName     string
 	custID       int
 	shouldPass   bool
-	setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *users.User)
+	setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *user.User)
 	teardownFunc func(*testing.T, sqlmock.Sqlmock)
 }
 type InsertCustTests struct {
 	testName       string
-	user           users.User
+	user           user.User
 	expectedUserID int64
 	shouldPass     bool
-	setupFunc      func(*testing.T, users.User) (*sql.DB, sqlmock.Sqlmock)
+	setupFunc      func(*testing.T, user.User) (*sql.DB, sqlmock.Sqlmock)
 	teardownFunc   func(*testing.T, sqlmock.Sqlmock)
 }
 
@@ -67,7 +67,7 @@ func TestGetAllCustomers(t *testing.T) {
 			db, mock, expected := tc.setupFunc(t)
 			defer db.Close()
 
-			actual, err := users.GetAllUsers(db)
+			actual, err := user.GetAllUsers(db)
 			if tc.shouldPass && err != nil {
 				t.Fatalf("error '%s' was not expected", err)
 			}
@@ -128,7 +128,7 @@ func TestGetCustomer(t *testing.T) {
 			db, mock, expected := tc.setupFunc(t)
 			defer db.Close()
 
-			actual, err := users.GetUser(db, tc.custID)
+			actual, err := user.GetUser(db, tc.custID)
 
 			validateExpectedErrors(t, err, tc.shouldPass)
 
@@ -148,7 +148,7 @@ func TestInsertCustomer(t *testing.T) {
 	tests := []InsertCustTests{
 		{
 			testName: "testInsertCustomerSuccess",
-			user: users.User{
+			user: user.User{
 				AccountID: 1,
 				Name:      "mama cass",
 				EMail:     "mama@gmail.com",
@@ -162,7 +162,7 @@ func TestInsertCustomer(t *testing.T) {
 		},
 		{
 			testName: "testInsertCustomererror",
-			user: users.User{
+			user: user.User{
 				AccountID: 1,
 				Name:      "mama cass",
 				EMail:     "mama@gmail.com",
@@ -181,7 +181,7 @@ func TestInsertCustomer(t *testing.T) {
 			db, mock := tc.setupFunc(t, tc.user)
 			defer db.Close()
 
-			uID, err := users.InsertUser(db, tc.user)
+			uID, err := user.InsertUser(db, tc.user)
 
 			validateExpectedErrors(t, err, tc.shouldPass)
 

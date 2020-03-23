@@ -3,6 +3,8 @@
 // license that can be found in the LICENSE file.
 
 /*
-Package handlers contains the implementations of the HTTP handlers for the Customer service.
+Package handlers contains the implementations of the HTTP handlers for the 'accountd' service. There
+are several resources that are part of an account. These include the users that are part of an account,
+and the account that has one or more associated users.
 */
 package handlers

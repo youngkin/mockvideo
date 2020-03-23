@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/youngkin/mockvideo/cmd/accountd/handlers"
+	"github.com/youngkin/mockvideo/cmd/accountd/handlers/users"
 	"github.com/youngkin/mockvideo/internal/platform/config"
 	"github.com/youngkin/mockvideo/internal/platform/constants"
 	"github.com/youngkin/mockvideo/internal/platform/logging"
@@ -130,7 +131,7 @@ func main() {
 	//
 	// Setup endpoints and start service
 	//
-	usersHandler, err := handlers.NewUserHandler(db, logger)
+	usersHandler, err := users.NewUserHandler(db, logger)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,

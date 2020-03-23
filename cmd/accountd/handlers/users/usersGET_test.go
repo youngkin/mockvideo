@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package handlers
+package users
 
 /*
 These tests and supporting code demonstrate the following:
@@ -25,14 +25,14 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/youngkin/mockvideo/internal/users"
-	tests "github.com/youngkin/mockvideo/internal/users/tests"
+	user "github.com/youngkin/mockvideo/internal/user"
+	tests "github.com/youngkin/mockvideo/internal/user/tests"
 )
 
 type Tests struct {
 	testName           string
 	shouldPass         bool
-	setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, users.Users)
+	setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, user.Users)
 	teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 	expectedHTTPStatus int
 }
@@ -40,7 +40,7 @@ type CustTests struct {
 	testName           string
 	url                string
 	shouldPass         bool
-	setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *users.User)
+	setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *user.User)
 	teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 	expectedHTTPStatus int
 }
