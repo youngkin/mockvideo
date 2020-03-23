@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	user "github.com/youngkin/mockvideo/internal/user"
+	"github.com/youngkin/mockvideo/internal/user"
 )
 
 type AllCustsTests struct {

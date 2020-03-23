@@ -24,8 +24,8 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	log "github.com/sirupsen/logrus"
 	logging "github.com/youngkin/mockvideo/internal/platform/logging"
-	user "github.com/youngkin/mockvideo/internal/user"
-	tests "github.com/youngkin/mockvideo/internal/user/tests"
+	"github.com/youngkin/mockvideo/internal/user"
+	"github.com/youngkin/mockvideo/internal/user/tests"
 )
 
 // logger is used to control code-under-test logging behavior
@@ -47,6 +47,7 @@ func init() {
 type POSTTest struct {
 	testName           string
 	shouldPass         bool
+	url                string
 	expectedHTTPStatus int
 	updateResourceID   string
 	expectedResourceID string
@@ -61,8 +62,9 @@ func TestPOSTUser(t *testing.T) {
 		{
 			testName:           "testInsertUserSuccess",
 			shouldPass:         true,
+			url:                "/users",
 			expectedHTTPStatus: http.StatusCreated,
-			expectedResourceID: "1",
+			expectedResourceID: "/users/1",
 			postData: `
 			{
 				"AccountID":1,
@@ -83,14 +85,13 @@ func TestPOSTUser(t *testing.T) {
 			teardownFunc: tests.DBCallTeardownHelper,
 		},
 		{
-			testName:           "testUpdateUserSuccess",
-			shouldPass:         true,
-			expectedHTTPStatus: http.StatusCreated,
-			updateResourceID:   "/2",
-			expectedResourceID: "2",
+			testName:           "testInsertUserFailInvalidURL",
+			shouldPass:         false,
+			url:                "/users/1",
+			expectedHTTPStatus: http.StatusBadRequest,
+			expectedResourceID: "",
 			postData: `
 			{
-				"ID": 2,
 				"AccountID":1,
 				"Name":"mickey dolenz",
 				"eMail":"mickeyd@gmail.com",
@@ -99,16 +100,68 @@ func TestPOSTUser(t *testing.T) {
 			}
 			`,
 			user: user.User{
-				ID:        1,
-				AccountID: 2,
+				AccountID: 1,
 				Name:      "mickey dolenz",
 				EMail:     "mickeyd@gmail.com",
 				Role:      1,
 				Password:  "myawesomepassword",
 			},
-			setupFunc:    tests.DBUpdateSetupHelper,
+			setupFunc:    tests.DBNoCallSetupHelper,
 			teardownFunc: tests.DBCallTeardownHelper,
 		},
+		{
+			testName:           "testInsertUserFailInvalidJSON",
+			shouldPass:         false,
+			url:                "/users",
+			expectedHTTPStatus: http.StatusBadRequest,
+			expectedResourceID: "",
+			postData: `
+			{
+				"ID": 1,
+				"AccountID":1,
+				"Name":"mickey dolenz",
+				"eMail":"mickeyd@gmail.com",
+				"role":1,
+				"password":"myawesomepassword"
+			}
+			`,
+			user: user.User{
+				AccountID: 1,
+				Name:      "mickey dolenz",
+				EMail:     "mickeyd@gmail.com",
+				Role:      1,
+				Password:  "myawesomepassword",
+			},
+			setupFunc:    tests.DBNoCallSetupHelper,
+			teardownFunc: tests.DBCallTeardownHelper,
+		},
+		// {
+		// 	testName:           "testUpdateUserSuccess",
+		// 	shouldPass:         true,
+		// 	expectedHTTPStatus: http.StatusCreated,
+		// 	updateResourceID:   "/2",
+		// 	expectedResourceID: "2",
+		// 	postData: `
+		// 	{
+		// 		"ID": 2,
+		// 		"AccountID":1,
+		// 		"Name":"mickey dolenz",
+		// 		"eMail":"mickeyd@gmail.com",
+		// 		"role":1,
+		// 		"password":"myawesomepassword"
+		// 	}
+		// 	`,
+		// 	user: user.User{
+		// 		ID:        1,
+		// 		AccountID: 2,
+		// 		Name:      "mickey dolenz",
+		// 		EMail:     "mickeyd@gmail.com",
+		// 		Role:      1,
+		// 		Password:  "myawesomepassword",
+		// 	},
+		// 	setupFunc:    tests.DBUpdateSetupHelper,
+		// 	teardownFunc: tests.DBCallTeardownHelper,
+		// },
 	}
 
 	for _, tc := range tcs {
@@ -123,17 +176,18 @@ func TestPOSTUser(t *testing.T) {
 			testSrv := httptest.NewServer(http.HandlerFunc(postHandler.ServeHTTP))
 			defer testSrv.Close()
 
-			url := testSrv.URL + "/users" + tc.updateResourceID
+			url := testSrv.URL + tc.url
 			resp, err := http.Post(url, "application/json", bytes.NewBuffer([]byte(tc.postData)))
 			if err != nil {
 				t.Fatalf("an error '%s' was not expected calling accountd server", err)
 			}
 			defer resp.Body.Close()
 
-			resourceURL := resp.Header.Get("Location")
-			expectedResourceURL := "/users/" + tc.expectedResourceID
-			if string(resourceURL) != expectedResourceURL {
-				t.Errorf("expected resource %s, got %s", expectedResourceURL, resourceURL)
+			if tc.shouldPass {
+				resourceURL := resp.Header.Get("Location")
+				if string(resourceURL) != tc.expectedResourceID {
+					t.Errorf("expected resource %s, got %s", tc.expectedResourceID, resourceURL)
+				}
 			}
 
 			status := resp.StatusCode

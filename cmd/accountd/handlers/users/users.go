@@ -63,8 +63,10 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		h.handleGet(w, r)
-	case "POST":
+	case http.MethodPost:
 		h.handlePost(w, r)
+	case http.MethodPut:
+		h.handlePut(w, r)
 	default:
 		fmt.Fprintf(w, "Sorry, only GET, PUT, POST, and DELETE methods are supported.")
 		w.WriteHeader(http.StatusNotImplemented)

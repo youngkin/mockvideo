@@ -31,7 +31,7 @@ import (
 	"github.com/juju/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/youngkin/mockvideo/internal/platform/constants"
-	user "github.com/youngkin/mockvideo/internal/user"
+	"github.com/youngkin/mockvideo/internal/user"
 )
 
 // TODO:

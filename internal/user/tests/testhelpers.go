@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	user "github.com/youngkin/mockvideo/internal/user"
+	"github.com/youngkin/mockvideo/internal/user"
 )
 
 // DBCallSetupHelper encapsulates common code needed to setup mock DB access to user data
@@ -72,6 +72,15 @@ func DBInsertErrorSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmo
 	mock.ExpectExec("INSERT INTO user").WithArgs(u.AccountID, u.Name, u.EMail, u.Role, u.Password).
 		WillReturnError(fmt.Errorf("some error"))
 
+	return db, mock
+}
+
+// DBNoCallSetupHelper encapsulates the common code needed to mock an error upstream from an actual DB call
+func DBNoCallSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
 	return db, mock
 }
 

@@ -28,7 +28,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/juju/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/youngkin/mockvideo/internal/platform/constants"
 	"github.com/youngkin/mockvideo/internal/user"
@@ -37,7 +36,7 @@ import (
 // TODO:
 //	1.	Add context deadline to DB requests
 
-func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
+func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	h.logRqstRcvd(r)
 	start := time.Now()
 
@@ -65,7 +64,11 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		}).Warn(constants.JSONDecodingError)
 	}
 
-	// Expecting t URL.Path '/users'
+	//
+	// TODO: Write user to DB and get ID
+	// Is this an insert or update?
+	//
+	// Expecting a URL.Path like '/users' or '/users/{id}'
 	pathNodes, err := h.getURLPathNodes(r.URL.Path)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
@@ -79,33 +82,12 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.ID != 0 { // User ID must not be populated (i.e., with a non-zero value) on an insert
-		errMsg := fmt.Sprintf("expected User.ID > 0, got User.ID = %d", user.ID)
-		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.InvalidInsertErrorCode,
-			constants.HTTPStatus:  http.StatusBadRequest,
-			constants.Path:        r.URL.Path,
-			constants.ErrorDetail: errMsg,
-		}).Error(constants.InvalidInsertError)
-		w.WriteHeader(http.StatusBadRequest)
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
-		return
-	}
-
 	var userID int64
 	if len(pathNodes) == 1 {
 		userID, err = h.insertUser(user)
 	} else {
-		errMsg := fmt.Sprintf("expected '/users', got %s", pathNodes)
-		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.MalformedURLErrorCode,
-			constants.HTTPStatus:  http.StatusBadRequest,
-			constants.Path:        r.URL.Path,
-			constants.ErrorDetail: errMsg,
-		}).Error(constants.MalformedURL)
-		w.WriteHeader(http.StatusBadRequest)
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
-		return
+		// TODO: PROHIBIT UPDATES ON POST, REQUIRE PUT
+		userID, err = h.updateUser(user)
 	}
 	if err != nil {
 		h.logger.WithFields(log.Fields{
@@ -128,10 +110,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	userRqstDur.WithLabelValues(strconv.Itoa(http.StatusCreated)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) insertUser(u user.User) (int64, error) {
-	id, err := user.InsertUser(h.db, u)
-	if err != nil {
-		return -1, errors.Annotate(err, "error inserting user")
-	}
-	return id, nil
+func (h handler) updateUser(u user.User) (int64, error) {
+	// TODO: Implement
+	return int64(u.ID), nil
 }

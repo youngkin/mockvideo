@@ -23,6 +23,9 @@ const (
 	// HTTPWriteError indicates that there was a problem writing an HTTP response body
 	HTTPWriteError = "Error writing HTTP response body"
 
+	// InvalidInsertError indicates that an unexpected User.ID was detected in an insert request
+	InvalidInsertError = "Unexpected User.ID in insert request"
+
 	// JSONDecodingError indicates that there was a problem decoding JSON input
 	JSONDecodingError = "JSON Decoding Error"
 	// JSONMarshalingError indicates that there was a problem un/marshaling JSON
@@ -71,6 +74,9 @@ const (
 
 	// HTTPWriteErrorCode indicates that there was a problem writing an HTTP response body
 	HTTPWriteErrorCode
+
+	// InvalidInsertErrorCode is the error code associated with InvalidInsertError
+	InvalidInsertErrorCode
 
 	// JSONDecodingErrorCode indicates that there was a problem decoding JSON input
 	JSONDecodingErrorCode
