@@ -36,6 +36,10 @@ pertaining to:
 2.	Using structured logging for use with log view/search apps like ELK and Splunk
 3.	HTTP service configuration related to gracefully handling slow or unresponsive clients (e.g., write timeout)
 3.	Graceful shutdown in response to SIGTERM
+4.	Use of a MySQL 'database.sql.driver' implementation
+	i.	Uses 'interpolateParams=true' to avoid multiple round-trips when using placeholders (i.e., '?') in a
+		`db.Query()` or `db.Exec()` call
+	ii.	Uses 'parseTime=true' to allow unmarshaling DATE DATETIME directly into Golang time.Time variables.
 */
 
 // TODO:
@@ -214,7 +218,7 @@ func handleTermSignal(s *http.Server, logger *log.Entry, timeout int) {
 }
 
 func getDBConnectionStr(configs, secrets map[string]string) (string, error) {
-	// E.g., "username:userpassword@tcp(10.0.0.100:3306)/mockvideo"
+	// E.g., "username:userpassword@tcp(10.0.0.100:3306)/mockvideo?interpolateParams=true"
 	var sb strings.Builder
 
 	dbuser, ok := secrets["dbuser"]
@@ -250,6 +254,8 @@ func getDBConnectionStr(configs, secrets map[string]string) (string, error) {
 		return "", errors.NotAssignedf("DB Name, identified by 'dbName', not found in configuration")
 	}
 	sb.WriteString(dbName)
+
+	sb.WriteString("?interpolateParams=true")
 
 	return sb.String(), nil
 }

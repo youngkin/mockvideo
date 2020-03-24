@@ -13,12 +13,14 @@ const (
 	// Miscellaneous errors
 	//
 
-	// DBUpSertError indications that there was a problem executing a DB insert or update operation
-	DBUpSertError = "DB insert or update failed"
-	// DBQueryError indications that there was a problem executing a DB query operation
-	DBQueryError = "DB query failed"
+	// DBDeleteError is an indication of a DB error during a DELETE operation
+	DBDeleteError = "a DB error occurred during a DELETE operation"
+	// DBInvalidRequest indications that an update was attempted on an existing user
+	DBInvalidRequest = "attempted update on existing user"
 	// DBRowScanError indicates results from DB query could not be processed
 	DBRowScanError = "DB resultset processing failed"
+	// DBUpSertError indications that there was a problem executing a DB insert or update operation
+	DBUpSertError = "DB insert or update failed"
 
 	// HTTPWriteError indicates that there was a problem writing an HTTP response body
 	HTTPWriteError = "Error writing HTTP response body"
@@ -33,6 +35,13 @@ const (
 
 	// MalformedURL indicates there was a problem with the structure of the URL
 	MalformedURL = "Malformed URL"
+
+	// NoError is needed for situations where ErrCode is returned, but no error occurred
+	NoError = "No error occurred"
+
+	// RqstParsingError indicates that an error occurred while the path and/or body of the was
+	// being evaluated.
+	RqstParsingError = "Request parsing error"
 
 	// UnableToCreateHTTPHandler indications that there was a problem creating an http handler
 	UnableToCreateHTTPHandler = "Unable to create HTTP handler"
@@ -58,19 +67,28 @@ const (
 	// UserTypeConversionError indicates that the payload returned from GET /users/{id} could
 	// not be converted to either a Users (/users) or User (/users/{id}) type
 	UserTypeConversionError = "Unable to convert payload to User(s) type"
+	// UserValidationError indicates a problem with the User data
+	UserValidationError = "invalid user data"
 )
+
+// ErrCode is the application type for reporting error codes
+type ErrCode int
 
 const (
 	//
 	// Misc related error codes start at 0 and go to 99
 	//
 
-	// DBUpSertErrorCode indications that there was a problem executing a DB insert or update operation
-	DBUpSertErrorCode = iota
+	// DBDeleteErrorCode indication of a DB error during a DELETE operation
+	DBDeleteErrorCode ErrCode = iota
+	// DBInvalidRequestCode indication of an invalid request, e.g., an update was attempted on an existing user
+	DBInvalidRequestCode
 	// DBQueryErrorCode is the error code associated with DBQueryError
 	DBQueryErrorCode
 	// DBRowScanErrorCode is the error code associated with DBRowScan
 	DBRowScanErrorCode
+	// DBUpSertErrorCode indications that there was a problem executing a DB insert or update operation
+	DBUpSertErrorCode
 
 	// HTTPWriteErrorCode indicates that there was a problem writing an HTTP response body
 	HTTPWriteErrorCode
@@ -85,6 +103,12 @@ const (
 
 	// MalformedURLErrorCode is the error code associated with MalformedURL
 	MalformedURLErrorCode
+
+	// NoErrorCode is needed for situations where ErrCode is returned, but no error occurred
+	NoErrorCode
+
+	// RqstParsingErrorCode is the error code associated with RqstParsingErrorCode
+	RqstParsingErrorCode
 
 	// UnableToCreateHTTPHandlerErrorCode is the error code associated with UnableToCreateHTTPHandler
 	UnableToCreateHTTPHandlerErrorCode
@@ -108,7 +132,9 @@ const (
 	//
 
 	// UserRqstErrorCode is the error code associated with UserRqstErrorCode
-	UserRqstErrorCode = iota + 1000
+	UserRqstErrorCode ErrCode = iota + 1000
 	// UserTypeConversionErrorCode is the error code associated with UserTypeConversion
 	UserTypeConversionErrorCode
+	// UserValidationErrorCode indicates a problem with the User data
+	UserValidationErrorCode
 )

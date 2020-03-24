@@ -35,13 +35,19 @@ import (
 // TODO:
 //	1.	Add context deadline to DB requests
 
-func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
+func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 	h.logRqstRcvd(r)
 	start := time.Now()
 
-	// parseRqst() logs parsing errors, no need to log again
-	u, pathNodes, err := h.parseRqst(r)
+	pathNodes, err := h.getURLPathNodes(r.URL.Path)
 	if err != nil {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.MalformedURLErrorCode,
+			constants.HTTPStatus:  http.StatusBadRequest,
+			constants.Path:        r.URL.Path,
+			constants.ErrorDetail: err,
+		}).Error(constants.MalformedURL)
+
 		w.WriteHeader(http.StatusBadRequest)
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
@@ -60,23 +66,36 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errCode, err := user.UpdateUser(h.db, u)
+	uid, err := strconv.Atoi(pathNodes[1])
 	if err != nil {
-		httpStatus := http.StatusInternalServerError
-		if errCode == constants.DBInvalidRequestCode {
-			httpStatus = http.StatusBadRequest
-		}
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.MalformedURLErrorCode,
+			constants.HTTPStatus:  http.StatusBadRequest,
+			constants.Path:        r.URL.Path,
+			constants.ErrorDetail: err,
+		}).Error(constants.MalformedURL)
+
+		w.WriteHeader(http.StatusBadRequest)
+		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		return
+	}
+	errCode, err := user.DeleteUser(h.db, uid)
+	if err != nil {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
-			constants.HTTPStatus:  httpStatus,
+			constants.HTTPStatus:  http.StatusInternalServerError,
 			constants.Path:        r.URL.Path,
 			constants.ErrorDetail: err,
 		}).Error(errCode)
-		w.WriteHeader(httpStatus)
-		userRqstDur.WithLabelValues(strconv.Itoa(httpStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+		w.WriteHeader(http.StatusInternalServerError)
+		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
+	//
+	// Wrap up request
+	//
 	w.WriteHeader(http.StatusOK)
+
 	userRqstDur.WithLabelValues(strconv.Itoa(http.StatusCreated)).Observe(float64(time.Since(start)) / float64(time.Second))
 }

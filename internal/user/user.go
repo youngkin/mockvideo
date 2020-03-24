@@ -8,7 +8,9 @@ import (
 	"database/sql"
 	"fmt"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
+	"github.com/youngkin/mockvideo/internal/platform/constants"
 )
 
 // Role indicates what role a User can take regarding account actions (e.g., add a service)
@@ -27,6 +29,8 @@ var (
 	getAllUsersQuery = "SELECT accountID, id, name, email, role FROM user"
 	getUserQuery     = "SELECT accountID, id, name, email, role FROM user WHERE id = ?"
 	insertUserStmt   = "INSERT INTO user (accountID, name, email, role, password) VALUES (?, ?, ?, ?, ?)"
+	updateUserStmt   = "UPDATE user SET id = ?, accountID = ?, name = ?, email = ?, role = ?, password = ? WHERE id = ?"
+	deleteUserStmt   = "DELETE FROM user WHERE id = ?"
 )
 
 // User represents the data about a user
@@ -91,23 +95,83 @@ func GetUser(db *sql.DB, id int) (*User, error) {
 	return user, nil
 }
 
-// InsertUser takes the provided user data, inserts it into the db, and returns the newly created user ID
-func InsertUser(db *sql.DB, u User) (int64, error) {
+// InsertUser takes the provided user data, inserts it into the db, and returns the newly created user ID.
+// On error it will also return a "Valid" sql.NullInt32 representing the actual MySQL error code, e.g.,
+// '1062' on a duplicate key insert.
+func InsertUser(db *sql.DB, u User) (int64, sql.NullInt32, error) {
+	var errReason sql.NullInt32 = sql.NullInt32{}
+
 	err := validateUser(u)
 	if err != nil {
-		return 0, errors.Annotate(err, "User validation failure")
+		return 0, errReason, errors.Annotate(err, "User validation failure")
 	}
 
 	r, err := db.Exec(insertUserStmt, u.AccountID, u.Name, u.EMail, u.Role, u.Password)
 	if err != nil {
-		return 0, errors.Annotate(err, fmt.Sprintf("error inserting user into the database: %+v", u))
+		errDetail, ok := err.(*mysql.MySQLError)
+		if ok {
+			errReason = sql.NullInt32{Int32: int32(errDetail.Number), Valid: true}
+		}
+		return 0, errReason, errors.Annotate(err, fmt.Sprintf("error inserting user into the database: %+v", u))
 	}
 	id, err := r.LastInsertId()
 	if err != nil {
-		return 0, errors.Annotate(err, "error getting user ID")
+		errDetail, ok := err.(*mysql.MySQLError)
+		if ok {
+			errReason = sql.NullInt32{Int32: int32(errDetail.Number), Valid: true}
+		}
+		return 0, errReason, errors.Annotate(err, "error getting user ID")
 	}
 
-	return id, nil
+	return id, errReason, nil
+}
+
+// UpdateUser takes the provided user data, inserts it into the db, and returns the newly created user ID
+func UpdateUser(db *sql.DB, u User) (constants.ErrCode, error) {
+	err := validateUser(u)
+	if err != nil {
+		return constants.DBUpSertErrorCode, errors.Annotate(err, "User validation failure")
+	}
+
+	// This entire db.Begin/tx.Rollback/Commit seem awkward to me. But it's here because
+	// MySQL silently performs an insert if there is no row to update.
+	tx, err := db.Begin()
+	if err != nil {
+		return constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error beginning transaction for user: %+v", u))
+	}
+	r := db.QueryRow(getUserQuery, u.ID)
+	userRow := User{}
+	err = r.Scan(&userRow.AccountID,
+		&userRow.ID,
+		&userRow.Name,
+		&userRow.EMail,
+		&userRow.Role)
+	if err == nil {
+		return constants.DBInvalidRequestCode, errors.New(fmt.Sprintf("error, attempting to update existing user, user.ID %d", u.ID))
+	}
+	if err != nil && err != sql.ErrNoRows {
+		tx.Rollback()
+		return constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error updating user in the database: %+v", u))
+	}
+
+	_, err = db.Exec(updateUserStmt, u.ID, u.AccountID, u.Name, u.EMail, u.Role, u.Password, u.ID)
+	if err != nil {
+		tx.Rollback()
+		return constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error updating user in the database: %+v", u))
+	}
+	tx.Commit()
+
+	return constants.NoErrorCode, nil
+}
+
+// DeleteUser deletes the user identified by u.id from the database
+func DeleteUser(db *sql.DB, id int) (constants.ErrCode, error) {
+	_, err := db.Exec(deleteUserStmt, id)
+	if err != nil {
+		return constants.DBDeleteErrorCode, errors.Annotate(err, "Usesr delete error")
+	}
+
+	return constants.NoErrorCode, nil
 }
 
 // IsAuthorizedUser will return true if the encryptedPassword matches the

@@ -181,7 +181,7 @@ func TestInsertCustomer(t *testing.T) {
 			db, mock := tc.setupFunc(t, tc.user)
 			defer db.Close()
 
-			uID, err := user.InsertUser(db, tc.user)
+			uID, _, err := user.InsertUser(db, tc.user)
 
 			validateExpectedErrors(t, err, tc.shouldPass)
 

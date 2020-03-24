@@ -62,7 +62,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	var (
 		payload   interface{}
-		errReason int
+		errReason constants.ErrCode
 	)
 
 	if len(pathNodes) == 1 {
@@ -149,7 +149,7 @@ func (h handler) handleGetUsers(path string) (interface{}, error) {
 // an error reason and error if there was a problem retrieving the user, or a nil user and a nil
 // error if the user was not found. The error reason will only be relevant when the error
 // is non-nil.
-func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interface{}, errReason int, err error) {
+func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interface{}, errReason constants.ErrCode, err error) {
 	if len(pathNodes) > 1 {
 		err := errors.Errorf(("expected 1 pathNode, got %d"), len(pathNodes))
 		return nil, constants.MalformedURLErrorCode, err

@@ -18,10 +18,12 @@ This file attempts to showcase several best practices including:
 			context the error occurred in.
 4. 	Request validation - e.g., verify proper URL path construction
 5.	Proper use of HTTP status codes
-6.	Use of Prometheus to capture metrics
+6.	Detailed SQL error handling (i.e., 'mysql.MySQLError.Number') to set HTTP status codes
+7. 	Use of Prometheus to capture metrics
 */
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -79,7 +81,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if user.ID != 0 { // User ID must not be populated (i.e., with a non-zero value) on an insert
+	if user.ID != 0 { // User ID must *NOT* be populated (i.e., with a non-zero value) on an insert
 		errMsg := fmt.Sprintf("expected User.ID > 0, got User.ID = %d", user.ID)
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.InvalidInsertErrorCode,
@@ -92,10 +94,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var userID int64
-	if len(pathNodes) == 1 {
-		userID, err = h.insertUser(user)
-	} else {
+	if len(pathNodes) != 1 {
 		errMsg := fmt.Sprintf("expected '/users', got %s", pathNodes)
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.MalformedURLErrorCode,
@@ -107,15 +106,22 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
+
+	userID, errReason, err := h.insertUser(user)
 	if err != nil {
+		status := http.StatusInternalServerError
+		if errReason.Valid && errReason.Int32 == 1062 {
+			// '1062 is a duplicate key on insert error code, this indicates an attempt to insert a duplicate record, which is frowned upon
+			status = http.StatusBadRequest
+		}
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.DBUpSertErrorCode,
-			constants.HTTPStatus:  http.StatusInternalServerError,
+			constants.HTTPStatus:  status,
 			constants.Path:        r.URL.Path,
 			constants.ErrorDetail: err,
 		}).Error(constants.DBUpSertError)
-		w.WriteHeader(http.StatusInternalServerError)
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+		w.WriteHeader(status)
+		userRqstDur.WithLabelValues(strconv.Itoa(status)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
@@ -128,10 +134,10 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	userRqstDur.WithLabelValues(strconv.Itoa(http.StatusCreated)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) insertUser(u user.User) (int64, error) {
-	id, err := user.InsertUser(h.db, u)
+func (h handler) insertUser(u user.User) (int64, sql.NullInt32, error) {
+	id, errReason, err := user.InsertUser(h.db, u)
 	if err != nil {
-		return -1, errors.Annotate(err, "error inserting user")
+		return -1, errReason, errors.Annotate(err, "error inserting user")
 	}
-	return id, nil
+	return id, errReason, nil
 }

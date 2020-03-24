@@ -23,6 +23,7 @@ This file attempts to showcase several best practices including:
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -31,6 +32,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 	"github.com/youngkin/mockvideo/internal/platform/constants"
+	"github.com/youngkin/mockvideo/internal/user"
 )
 
 type handler struct {
@@ -67,6 +69,8 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.handlePost(w, r)
 	case http.MethodPut:
 		h.handlePut(w, r)
+	case http.MethodDelete:
+		h.handleDelete(w, r)
 	default:
 		fmt.Fprintf(w, "Sorry, only GET, PUT, POST, and DELETE methods are supported.")
 		w.WriteHeader(http.StatusNotImplemented)
@@ -90,6 +94,46 @@ func (h handler) getURLPathNodes(path string) ([]string, error) {
 	}
 	// Strip off empty string that replaces the first '/' in '/users'
 	return pathNodes[1:], nil
+}
+
+func (h handler) parseRqst(r *http.Request) (user.User, []string, error) {
+	//
+	// Get user out of request body and validate
+	//
+	d := json.NewDecoder(r.Body)
+	d.DisallowUnknownFields() // error if user sends extra data
+	u := user.User{}
+	err := d.Decode(&u)
+	if err != nil {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.JSONDecodingErrorCode,
+			constants.HTTPStatus:  http.StatusBadRequest,
+			constants.ErrorDetail: err.Error(),
+		}).Error(constants.JSONDecodingError)
+
+		return user.User{}, nil, err
+	}
+	if d.More() {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.JSONDecodingErrorCode,
+			constants.ErrorDetail: err.Error(),
+		}).Warn(constants.JSONDecodingError)
+	}
+
+	// Expecting a URL.Path like '/users/{id}'
+	pathNodes, err := h.getURLPathNodes(r.URL.Path)
+	if err != nil {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.MalformedURLErrorCode,
+			constants.HTTPStatus:  http.StatusBadRequest,
+			constants.Path:        r.URL.Path,
+			constants.ErrorDetail: err,
+		}).Error(constants.MalformedURL)
+
+		return user.User{}, nil, err
+	}
+
+	return u, pathNodes, nil
 }
 
 // NewUserHandler returns a *http.Handler configured with a database connection

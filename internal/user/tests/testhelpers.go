@@ -49,6 +49,31 @@ func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, user.Users) {
 	return db, mock, expected
 }
 
+// DBDeleteSetupHelper encapsulates the common code needed to setup a mock User delete
+func DBDeleteSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	mock.ExpectExec("DELETE FROM user WHERE id = ?").WithArgs(u.ID).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	return db, mock
+}
+
+// DBDeleteErrorSetupHelper encapsulates the common code needed to mock a user delete error
+func DBDeleteErrorSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	mock.ExpectExec("DELETE FROM user WHERE id = ?").WithArgs(u.ID).WillReturnError(sql.ErrConnDone)
+
+	return db, mock
+}
+
 // DBInsertSetupHelper encapsulates the common code needed to setup a mock User insert
 func DBInsertSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
@@ -81,19 +106,69 @@ func DBNoCallSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmock) {
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
 	}
+
 	return db, mock
 }
 
-// DBUpdateSetupHelper encapsulates the common code needed to setup a mock User insert
+// DBUpdateNonExistingRowSetupHelper mimics an update to a non-existing user, can't update non-existing user.
+func DBUpdateNonExistingRowSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	rows := sqlmock.NewRows([]string{"accountid", "id", "name", "email", "role"}).
+		AddRow(1, 100, "Mickey Mouse", "MickeyMoused@disney.com", user.Unrestricted)
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id = ?").WithArgs(u.ID).
+		WillReturnRows(rows)
+
+	return db, mock
+}
+
+// DBUpdateErrorSelectSetupHelper mimics an update where the non-existence query fails.
+func DBUpdateErrorSelectSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id = ?").WithArgs(u.ID).
+		WillReturnError(sql.ErrConnDone)
+
+	return db, mock
+}
+
+// DBUpdateSetupHelper encapsulates the common code needed to setup a mock User update
 func DBUpdateSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmock) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
 	}
 
-	// mock.ExpectExec("UPDATE user").WithArgs(u.AccountID, u.Name, u.EMail, u.Role, u.Password).
-	// 	WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id = ?").WithArgs(u.ID).WillReturnError(sql.ErrNoRows)
+	mock.ExpectExec("UPDATE user SET (.+) WHERE (.+)").WithArgs(u.ID, u.AccountID, u.Name, u.EMail, u.Role, u.Password, u.ID).
+		WillReturnResult(sqlmock.NewResult(0, 1)) // no insert ID, 1 row affected
+	// mock.ExpectExec("UPDATE user").WithArgs(sqlmock.AnyArg, sqlmock.AnyArg, sqlmock.AnyArg, sqlmock.AnyArg, sqlmock.AnyArg, sqlmock.AnyArg, sqlmock.AnyArg).
+	// 	WillReturnResult(sqlmock.NewResult(0, 1)) // no insert ID, 1 row affected
+	mock.ExpectCommit()
+	return db, mock
+}
 
+// DBUpdateErrorSetupHelper encapsulates the common code needed to setup a mock User update error
+func DBUpdateErrorSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
+	}
+
+	mock.ExpectBegin()
+	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id = ?").WithArgs(u.ID).WillReturnError(sql.ErrNoRows)
+	mock.ExpectExec("UPDATE user SET (.+) WHERE (.+)").WithArgs(u.ID, u.AccountID, u.Name, u.EMail, u.Role, u.Password, u.ID).WillReturnError(sql.ErrConnDone)
+	mock.ExpectRollback()
 	return db, mock
 }
 
