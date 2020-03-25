@@ -146,7 +146,8 @@ func main() {
 	healthHandler := http.HandlerFunc(handlers.HealthFunc)
 
 	mux := http.NewServeMux()
-	mux.Handle("/users/", usersHandler)
+	mux.Handle("/users", usersHandler)  // Desired to prevent redirects. Can remove if redirects for '/users/' are OK
+	mux.Handle("/users/", usersHandler) // Required to properly route requests to '/users/{id}. Don't understand why the above route isn't sufficient
 	mux.Handle("/accountdhealth", healthHandler)
 	mux.Handle("/metrics", promhttp.Handler())
 

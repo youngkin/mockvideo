@@ -30,6 +30,7 @@ The tests and supporting code demonstrate the following:
 	executions.
 3.	Use of unit test "helper" functions that can fail tests on behalf of calling code.
 	See [Go Advanced Testing Tips](https://medium.com/@povilasve/go-advanced-tips-tricks-a872503ac859) for details.
+4.	Use of the 'net/http/httptest' package to test HTTP services.
 
 
 

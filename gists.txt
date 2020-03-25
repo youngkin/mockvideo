@@ -1,4 +1,4 @@
-curl -i -X POST http://accountd.kube/users -H "Content-Type: application/json" -d "{\"accountid\":1,\"name\":\"Brian Wilson\",\"email\":\"goodvibrations@gmail.com\",\"role\":1,\"password\":\"helpmerhonda\"}"
+curl -i -X POST http://accountd.kube/users/ -H "Content-Type: application/json" -d "{\"accountid\":1,\"name\":\"Brian Wilson\",\"email\":\"goodvibrations@gmail.com\",\"role\":1,\"password\":\"helpmerhonda\"}"
 
 curl -i http://accountd.kube/users (add -L to follow redirects)
 

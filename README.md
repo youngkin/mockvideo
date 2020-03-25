@@ -14,7 +14,7 @@ Current development is focused on:
 1. Use of [Travis CI](https://travis-ci.org)
 2. Creating Docker images
 3. Helm deployments to a Kubernetes cluster
-4. Implementation of a Account microservice. Currently the implemention supports the ability to get all users associated with any account from a MySQL database. The primary purpose of this initial capability is to demonstrate:
+4. Implementation of an Account microservice. Currently the implemention supports the ability to get all users associated with any account from a MySQL database. The primary purpose of this initial capability is to demonstrate:
 
     1.  Application (Go) [package design](https://www.ardanlabs.com/blog/2017/02/package-oriented-design.html)  as promoted by Bill Kennedy at [Arden Labs](https://www.ardanlabs.com).
     2.  Application configuration
