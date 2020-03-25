@@ -7,6 +7,32 @@ Package users contains the implementations of the HTTP handlers for the 'users' 
 are several resources that are part of an account. These include the users that are part of an account,
 and the account that has one or more associated users.
 
+The code in this package attempts to showcase several best practices including:
+
+1.	Structured logging (i.e., 'logger.WithFields(...)')
+2.	Log 'hygiene'. Lower level functions don't log. The do return
+	errors when necessary and allow the calling function to decide
+	if it wants to log the error or propagate the error up the stack.
+3.	Error handling:
+	i.		Early returns
+	ii.		Use of error codes vs. text strings
+	iii.	Addition of info to errors to help better understand the
+			context the error occurred in.
+4. 	Request validation - e.g., verify proper URL path construction
+5.	Proper use of HTTP status codes
+6.	Use of Prometheus to capture metrics
+
+The tests and supporting code demonstrate the following:
+
+1.  Table driven tests using 'Tests' and 'CustTests' structs and appropriate
+	test instance definitions using struct literals in each test function
+2.	Sub-tests. These are useful to get more detailed information from your test
+	executions.
+3.	Use of unit test "helper" functions that can fail tests on behalf of calling code.
+	See [Go Advanced Testing Tips](https://medium.com/@povilasve/go-advanced-tips-tricks-a872503ac859) for details.
+
+
+
 The 'users' sub-package will do basic CRUD operations on the users resource. Here are the associated
 resource URLs (prepended with '/accountd'):
 

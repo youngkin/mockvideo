@@ -8,6 +8,9 @@
 
 package constants
 
+// MySQLDupInsertErrorCode is an alias for the MySQL error code for duplicate row insert attempt
+const MySQLDupInsertErrorCode = 1062
+
 const (
 	//
 	// Miscellaneous errors
@@ -15,8 +18,10 @@ const (
 
 	// DBDeleteError is an indication of a DB error during a DELETE operation
 	DBDeleteError = "a DB error occurred during a DELETE operation"
-	// DBInvalidRequest indications that an update was attempted on an existing user
-	DBInvalidRequest = "attempted update on existing user"
+	// DBInsertDuplicateUserError indicates an attempt to insert a duplicate row
+	DBInsertDuplicateUserError = "attempt to insert dupliecate user"
+	// DBInvalidRequest indicates an invalid DB request, like attempting to update a non-existent user
+	DBInvalidRequest = "attempted update on a non-existent user"
 	// DBRowScanError indicates results from DB query could not be processed
 	DBRowScanError = "DB resultset processing failed"
 	// DBUpSertError indications that there was a problem executing a DB insert or update operation
@@ -81,6 +86,8 @@ const (
 
 	// DBDeleteErrorCode indication of a DB error during a DELETE operation
 	DBDeleteErrorCode ErrCode = iota
+	// DBInsertDuplicateUserErrorCode indicates an attempt to insert a duplicate row
+	DBInsertDuplicateUserErrorCode
 	// DBInvalidRequestCode indication of an invalid request, e.g., an update was attempted on an existing user
 	DBInvalidRequestCode
 	// DBQueryErrorCode is the error code associated with DBQueryError

@@ -23,7 +23,6 @@ This file attempts to showcase several best practices including:
 */
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -110,8 +109,8 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	userID, errReason, err := h.insertUser(user)
 	if err != nil {
 		status := http.StatusInternalServerError
-		if errReason.Valid && errReason.Int32 == 1062 {
-			// '1062 is a duplicate key on insert error code, this indicates an attempt to insert a duplicate record, which is frowned upon
+		if errReason == constants.DBInsertDuplicateUserErrorCode {
+			// Invalid to insert a duplicate user, this is a client error hence the StatusBadRequest
 			status = http.StatusBadRequest
 		}
 		h.logger.WithFields(log.Fields{
@@ -125,16 +124,13 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//
-	// Wrap up request
-	//
 	w.Header().Add("Location", fmt.Sprintf("/users/%d", userID))
 	w.WriteHeader(http.StatusCreated)
 
 	userRqstDur.WithLabelValues(strconv.Itoa(http.StatusCreated)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) insertUser(u user.User) (int64, sql.NullInt32, error) {
+func (h handler) insertUser(u user.User) (int64, constants.ErrCode, error) {
 	id, errReason, err := user.InsertUser(h.db, u)
 	if err != nil {
 		return -1, errReason, errors.Annotate(err, "error inserting user")

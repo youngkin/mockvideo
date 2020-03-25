@@ -4,16 +4,6 @@
 
 package users
 
-/*
-These tests and supporting code demonstrate the following:
-
-1.  Table driven tests using 'Tests' and 'CustTests' structs and appropriate
-	test instance definitions using struct literals in each test function
-2.	Sub-tests. These are useful to get more detailed information from your test
-	executions.
-3.	The use of external helper functions for test setup and teardown.
-*/
-
 import (
 	"bytes"
 	"database/sql"
@@ -44,7 +34,7 @@ func init() {
 	//  })
 }
 
-type POSTTest struct {
+type TestCase struct {
 	testName           string
 	shouldPass         bool
 	url                string
@@ -58,7 +48,7 @@ type POSTTest struct {
 }
 
 func TestPOSTUser(t *testing.T) {
-	tcs := []POSTTest{
+	tcs := []TestCase{
 		{
 			testName:           "testInsertUserSuccess",
 			shouldPass:         true,
@@ -85,6 +75,7 @@ func TestPOSTUser(t *testing.T) {
 			teardownFunc: tests.DBCallTeardownHelper,
 		},
 		{
+			// On insert the URL must not include a resource ID
 			testName:           "testInsertUserFailInvalidURL",
 			shouldPass:         false,
 			url:                "/users/1",
@@ -110,6 +101,7 @@ func TestPOSTUser(t *testing.T) {
 			teardownFunc: tests.DBCallTeardownHelper,
 		},
 		{
+			// On insert the JSON body must not include user ID
 			testName:           "testInsertUserFailInvalidJSON",
 			shouldPass:         false,
 			url:                "/users",
@@ -176,7 +168,7 @@ func TestPOSTUser(t *testing.T) {
 func TestPUTUser(t *testing.T) {
 	client := &http.Client{}
 
-	tcs := []POSTTest{
+	tcs := []TestCase{
 		{
 			testName:           "testUpdateUserSuccess",
 			shouldPass:         true,
@@ -206,6 +198,8 @@ func TestPUTUser(t *testing.T) {
 			teardownFunc: tests.DBCallTeardownHelper,
 		},
 		{
+			// MySQL UPDATE will insert a row if it doesn't exist. Needed to prohibit
+			// this hence this test.
 			testName:           "testUpdateNonExistUser",
 			shouldPass:         false,
 			url:                "/users/100",
@@ -321,13 +315,6 @@ func TestPUTUser(t *testing.T) {
 				t.Fatalf("an error '%s' was not expected calling (client.Do()) accountd server", err)
 			}
 
-			if tc.shouldPass {
-				resourceURL := resp.Header.Get("Location")
-				if string(resourceURL) != tc.expectedResourceID {
-					t.Errorf("expected resource %s, got %s", tc.expectedResourceID, resourceURL)
-				}
-			}
-
 			status := resp.StatusCode
 			if status != tc.expectedHTTPStatus {
 				t.Errorf("expected StatusCode = %d, got %d", tc.expectedHTTPStatus, status)
@@ -341,7 +328,7 @@ func TestPUTUser(t *testing.T) {
 func TestDELETEUser(t *testing.T) {
 	client := &http.Client{}
 
-	tcs := []POSTTest{
+	tcs := []TestCase{
 		{
 			testName:           "testDeleteUserSuccess",
 			shouldPass:         true,

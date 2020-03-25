@@ -96,34 +96,29 @@ func GetUser(db *sql.DB, id int) (*User, error) {
 }
 
 // InsertUser takes the provided user data, inserts it into the db, and returns the newly created user ID.
-// On error it will also return a "Valid" sql.NullInt32 representing the actual MySQL error code, e.g.,
-// '1062' on a duplicate key insert.
-func InsertUser(db *sql.DB, u User) (int64, sql.NullInt32, error) {
-	var errReason sql.NullInt32 = sql.NullInt32{}
-
+func InsertUser(db *sql.DB, u User) (int64, constants.ErrCode, error) {
 	err := validateUser(u)
 	if err != nil {
-		return 0, errReason, errors.Annotate(err, "User validation failure")
+		return 0, constants.UserValidationErrorCode, errors.Annotate(err, "User validation failure")
 	}
 
 	r, err := db.Exec(insertUserStmt, u.AccountID, u.Name, u.EMail, u.Role, u.Password)
 	if err != nil {
 		errDetail, ok := err.(*mysql.MySQLError)
 		if ok {
-			errReason = sql.NullInt32{Int32: int32(errDetail.Number), Valid: true}
+			if errDetail.Number == constants.MySQLDupInsertErrorCode {
+				return 0, constants.DBInsertDuplicateUserErrorCode, errors.Annotate(err, fmt.Sprintf("error inserting duplicate user into the database: %+v, possible duplicate email address", u))
+			}
+		} else {
+			return 0, constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error inserting user %+v into DB", u))
 		}
-		return 0, errReason, errors.Annotate(err, fmt.Sprintf("error inserting user into the database: %+v", u))
 	}
 	id, err := r.LastInsertId()
 	if err != nil {
-		errDetail, ok := err.(*mysql.MySQLError)
-		if ok {
-			errReason = sql.NullInt32{Int32: int32(errDetail.Number), Valid: true}
-		}
-		return 0, errReason, errors.Annotate(err, "error getting user ID")
+		return 0, constants.DBUpSertErrorCode, errors.Annotate(err, "error getting user ID")
 	}
 
-	return id, errReason, nil
+	return id, constants.NoErrorCode, nil
 }
 
 // UpdateUser takes the provided user data, inserts it into the db, and returns the newly created user ID
@@ -147,7 +142,7 @@ func UpdateUser(db *sql.DB, u User) (constants.ErrCode, error) {
 		&userRow.EMail,
 		&userRow.Role)
 	if err == nil {
-		return constants.DBInvalidRequestCode, errors.New(fmt.Sprintf("error, attempting to update existing user, user.ID %d", u.ID))
+		return constants.DBInvalidRequestCode, errors.New(fmt.Sprintf("error, attempting to update non-existent user, user.ID %d", u.ID))
 	}
 	if err != nil && err != sql.ErrNoRows {
 		tx.Rollback()
