@@ -14,7 +14,7 @@ Current development is focused on:
 1. Use of [Travis CI](https://travis-ci.org)
 2. Creating Docker images
 3. Helm deployments to a Kubernetes cluster
-4. Implementation of a Customer microservice. Currently the implemention supports the ability to get all customers from a MySQL database. The primary purpose of this initial capability is to demonstrate:
+4. Implementation of a Account microservice. Currently the implemention supports the ability to get all users associated with any account from a MySQL database. The primary purpose of this initial capability is to demonstrate:
 
     1.  Application (Go) [package design](https://www.ardanlabs.com/blog/2017/02/package-oriented-design.html)  as promoted by Bill Kennedy at [Arden Labs](https://www.ardanlabs.com).
     2.  Application configuration
@@ -31,13 +31,13 @@ Current development is focused on:
   
     8. Best practices for all of the above.
 
-The project is still in the early phases of development. The initial and current goal is to complete all of the above aspects for the Customer microservice, specifically the ability to get customer information. Achieving this will provide the groundwork necessary to continue to the next phase. The primary code for the Customer service is located at [cmd/customerd](https://github.com/youngkin/mockvideo/tree/master/cmd/customerd) with some supporting code in the [internal package](https://github.com/youngkin/mockvideo/tree/master/internal), [helm](https://github.com/youngkin/mockvideo/tree/master/helm), [kubernetes](https://github.com/youngkin/mockvideo/tree/master/kubernetes), and [sql](https://github.com/youngkin/mockvideo/tree/master/sql) locations.
+The project is still in the early phases of development. The initial and current goal is to complete all of the above aspects for the Account microservice, specifically the ability to get user information. Achieving this will provide the groundwork necessary to continue to the next phase. The primary code for the Account service is located at [cmd/accountd](https://github.com/youngkin/mockvideo/tree/master/cmd/accountd) with some supporting code in the [internal package](https://github.com/youngkin/mockvideo/tree/master/internal), [helm](https://github.com/youngkin/mockvideo/tree/master/helm), [kubernetes](https://github.com/youngkin/mockvideo/tree/master/kubernetes), and [sql](https://github.com/youngkin/mockvideo/tree/master/sql) locations.
 
-The next phase will focus on the initial development of a second microservice. The purpose of this is to demonstrate the use of common code and to also demonstrate the use of Helm in a second microservice. These two goals will validate the package design and the ability to continue to develop and deploy multiple microservices on independent schedules.
+The next phase will focus on the initial development of a second microservice. The purpose of this will be to demonstrate the use of common code and to also demonstrate the use of Helm in a second microservice. These two goals will validate the package design and the ability to continue to develop and deploy multiple microservices on independent schedules.
 
 Beyond this, other candidate features include:
 
-1. Full support for customer accounts including what services they've subscribed to.
+1. Full support for user accounts including what services they've subscribed to.
 2. Support for obtaining program guide information
 3. Support for recordings, including scheduling recordings (from the program guide) and querying scheduled recordings.
 
