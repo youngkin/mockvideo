@@ -1,0 +1,26 @@
+curl -i -X POST http://accountd.kube/users -H "Content-Type: application/json" -d "{\"accountid\":1,\"name\":\"Brian Wilson\",\"email\":\"goodvibrations@gmail.com\",\"role\":1,\"password\":\"helpmerhonda\"}"
+
+curl -i http://accountd.kube/users (add -L to follow redirects)
+
+// Update changing name
+UPDATE user
+    SET accountID=1,
+        id=1,
+        name="Mickey Dolenz",
+        email="mickeyd@gmail.com",
+        role=1,
+        password=""
+    WHERE id = 1
+
+    // Update non-existent user
+    UPDATE user
+        SET accountID=5,
+            id=100,
+            name="Mickey Mouse",
+            email="MickeyMouse@disney.com",
+            role=1,
+            password=""
+        WHERE id = 100
+
+
+DELETE FROM user WHERE ID = 10;

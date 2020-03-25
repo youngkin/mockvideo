@@ -39,7 +39,6 @@ import (
 //	1.	Add context deadline to DB requests
 
 func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
-	h.logRqstRcvd(r)
 	start := time.Now()
 
 	//

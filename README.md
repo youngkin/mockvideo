@@ -47,4 +47,4 @@ This README will be regularly updated as progress continues. I welcome contribut
 
 # Docker Respositories
 
-* Customer service - [ryoungkin/customerd](https://hub.docker.com/repository/docker/ryoungkin/customerd)
+* Customer service - [ryoungkin/accountd](https://hub.docker.com/repository/docker/ryoungkin/accountd)

@@ -45,6 +45,7 @@ func init() {
 
 // ServeHTTP handles the request
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.logRqstRcvd(r)
 	switch r.Method {
 	case http.MethodGet:
 		h.handleGet(w, r)
@@ -72,11 +73,19 @@ func (h handler) logRqstRcvd(r *http.Request) {
 func (h handler) getURLPathNodes(path string) ([]string, error) {
 	pathNodes := strings.Split(path, "/")
 
-	if len(path) < 2 {
+	if len(pathNodes) < 2 {
 		return nil, errors.New(constants.UserRqstError)
 	}
+
 	// Strip off empty string that replaces the first '/' in '/users'
-	return pathNodes[1:], nil
+	pathNodes = pathNodes[1:]
+
+	// Strip off the empty string that replaces the second '/' in '/users/'
+	if pathNodes[len(pathNodes)-1] == "" {
+		pathNodes = pathNodes[0 : len(pathNodes)-1]
+	}
+
+	return pathNodes, nil
 }
 
 func (h handler) parseRqst(r *http.Request) (user.User, []string, error) {

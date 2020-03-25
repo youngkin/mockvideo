@@ -146,7 +146,7 @@ func main() {
 	healthHandler := http.HandlerFunc(handlers.HealthFunc)
 
 	mux := http.NewServeMux()
-	mux.Handle("/users", usersHandler)
+	mux.Handle("/users/", usersHandler)
 	mux.Handle("/accountdhealth", healthHandler)
 	mux.Handle("/metrics", promhttp.Handler())
 

@@ -31,11 +31,14 @@ import (
 
 type Tests struct {
 	testName           string
+	url                string
 	shouldPass         bool
 	setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, user.Users)
 	teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 	expectedHTTPStatus int
 }
+
+// CustTests differs from 'Tests' in the setupFunc and teardownFunc function signatures
 type CustTests struct {
 	testName           string
 	url                string
@@ -65,6 +68,15 @@ func TestGetAllUsers(t *testing.T) {
 	tcs := []Tests{
 		{
 			testName:           "testGetAllUsersSuccess",
+			url:                "/users",
+			shouldPass:         true,
+			setupFunc:          tests.DBCallSetupHelper,
+			teardownFunc:       tests.DBCallTeardownHelper,
+			expectedHTTPStatus: http.StatusOK,
+		},
+		{
+			testName:           "testGetAllUsersSuccessTrailingSlash",
+			url:                "/users/",
 			shouldPass:         true,
 			setupFunc:          tests.DBCallSetupHelper,
 			teardownFunc:       tests.DBCallTeardownHelper,
@@ -72,6 +84,7 @@ func TestGetAllUsers(t *testing.T) {
 		},
 		{
 			testName:           "testGetAllUsersQueryFailure",
+			url:                "/users",
 			shouldPass:         false,
 			setupFunc:          tests.DBCallQueryErrorSetupHelper,
 			teardownFunc:       tests.DBCallTeardownHelper,
@@ -79,6 +92,7 @@ func TestGetAllUsers(t *testing.T) {
 		},
 		{
 			testName:           "testGetAllUsersRowScanFailure",
+			url:                "/users",
 			shouldPass:         false,
 			setupFunc:          tests.DBCallRowScanErrorSetupHelper,
 			teardownFunc:       tests.DBCallTeardownHelper,
@@ -104,7 +118,7 @@ func TestGetAllUsers(t *testing.T) {
 			testSrv := httptest.NewServer(http.HandlerFunc(userHandler.ServeHTTP))
 			defer testSrv.Close()
 
-			url := testSrv.URL + "/users"
+			url := testSrv.URL + tc.url
 			resp, err := http.Get(url)
 			if err != nil {
 				t.Fatalf("an error '%s' was not expected calling accountd server", err)
