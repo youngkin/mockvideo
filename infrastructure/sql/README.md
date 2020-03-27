@@ -5,5 +5,5 @@ The 'sql' directory contains the sql needed to create the mockvideo project's da
 Files `createTables.sh` and `createTestData.sh` may need to be modified for the local database environment. Specifically:
 
 * `-uadmin` references a user named `admin`. This may need to be changed.
-* `-p2girls1cat` references the password for user `admin`. It  needs to be set to whatever the password for the user specified in `-u`.
+* `-pXXXXX` references the password for user `admin`. It  needs to be set to whatever the password for the user specified in `-u`.
 * `-h10.0.0.100` references the host address for the `mysql` server. This setting must reflect the correct address for the `mysql` server which may be different than this.
