@@ -1,0 +1,72 @@
+### Copyright (c) 2020 Richard Youngkin. All rights reserved.
+### Use of this source code is governed by a MIT-style
+### license that can be found in the LICENSE file.
+
+# Default values for mockvideo accountd service.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 4 ## This is the number of kube nodes. Less for testing maybe, more if you want to double/triple up pods/node
+
+image:
+  repository: ryoungkin/accountd
+  tag: 0.1.10
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+# If want to use these settings, uncomment, override values as necessary, and remove the curly-braces on 'annotations'
+# Use the below commented-out 'annotations' instead of the uncommented one
+#annotations: {}
+annotations: {
+  prometheusIOScrape: "true",
+  prometheusIOPort: "5000",
+  prometheusIOPath: "/metrics"
+}
+
+service:
+  type: ClusterIP
+  port: 5000
+
+ingress:
+  enabled: true
+  annotations: {
+    traefik.frontend.rule.type: PathPrefix
+  }
+  hosts:
+    - host: accountd.kube
+      paths: [/users,/accountsdhealth,/metrics,/sleeper]
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+accountd: 
+  port: 5000
+  # 0=PANIC, 1=FATAL, 2=ERROR, 3=WARN, 4=INFO, 5=DEBUG, 6=TRACE
+  logLevel: 4
+  dbHost: mysql
+  dbName: mockvideo
+  dbPort: 3306
+  

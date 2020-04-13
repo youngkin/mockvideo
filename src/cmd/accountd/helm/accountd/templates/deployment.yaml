@@ -1,0 +1,74 @@
+### Copyright (c) 2020 Richard Youngkin. All rights reserved.
+### Use of this source code is governed by a MIT-style
+### license that can be found in the LICENSE file.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "accountd.fullname" . }}
+  labels:
+{{ include "accountd.labels" . | indent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "accountd.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "accountd.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: "/metrics"
+        prometheus.io/port: "5000"
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 5000
+              protocol: TCP
+          volumeMounts:
+            - name: accountd-config-volume
+              mountPath: /opt/mockvideo/accountd/config
+            - name: accountd-secret-volume
+              mountPath: /opt/mockvideo/accountd/secrets
+          livenessProbe:
+            httpGet:
+              path: /accountdhealth
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /accountdhealth
+              port: http
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: accountd-config-volume
+          configMap:
+            defaultMode: 420
+            name: accountd-server-conf
+        - name: accountd-secret-volume
+          secret:
+            defaultMode: 420
+            secretName: accountd-secrets
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
