@@ -141,6 +141,8 @@ func UpdateUser(db *sql.DB, u User) (constants.ErrCode, error) {
 		&userRow.Name,
 		&userRow.EMail,
 		&userRow.Role)
+
+	// TODO Is this correct? I think not, 'err == nil' indicates that there is a row. come back later and fix
 	if err == nil {
 		return constants.DBInvalidRequestCode, errors.New(fmt.Sprintf("error, attempting to update non-existent user, user.ID %d", u.ID))
 	}
