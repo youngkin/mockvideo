@@ -117,12 +117,8 @@ func DBUpdateNonExistingRowSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlm
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
 	}
 
-	rows := sqlmock.NewRows([]string{"accountid", "id", "name", "email", "role"}).
-		AddRow(1, 100, "Mickey Mouse", "MickeyMoused@disney.com", user.Unrestricted)
-
 	mock.ExpectBegin()
-	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id = ?").WithArgs(u.ID).
-		WillReturnRows(rows)
+	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id = ?").WithArgs(u.ID).WillReturnError(sql.ErrNoRows)
 
 	return db, mock
 }
@@ -148,12 +144,13 @@ func DBUpdateSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmock) {
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
 	}
 
+	rows := sqlmock.NewRows([]string{"accountid", "id", "name", "email", "role"}).
+		AddRow(1, 2, "mickey dolenz", "mickeyd@gmail.com", user.Unrestricted)
+
 	mock.ExpectBegin()
-	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id = ?").WithArgs(u.ID).WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id = ?").WithArgs(u.ID).WillReturnRows(rows)
 	mock.ExpectExec("UPDATE user SET (.+) WHERE (.+)").WithArgs(u.ID, u.AccountID, u.Name, u.EMail, u.Role, u.Password, u.ID).
 		WillReturnResult(sqlmock.NewResult(0, 1)) // no insert ID, 1 row affected
-	// mock.ExpectExec("UPDATE user").WithArgs(sqlmock.AnyArg, sqlmock.AnyArg, sqlmock.AnyArg, sqlmock.AnyArg, sqlmock.AnyArg, sqlmock.AnyArg, sqlmock.AnyArg).
-	// 	WillReturnResult(sqlmock.NewResult(0, 1)) // no insert ID, 1 row affected
 	mock.ExpectCommit()
 	return db, mock
 }
@@ -165,8 +162,12 @@ func DBUpdateErrorSetupHelper(t *testing.T, u user.User) (*sql.DB, sqlmock.Sqlmo
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
 	}
 
+	rows := sqlmock.NewRows([]string{"accountid", "id", "name", "email", "role"}).
+		AddRow(1, 100, "Mickey Mouse", "MickeyMoused@disney.com", user.Unrestricted)
+
 	mock.ExpectBegin()
-	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id = ?").WithArgs(u.ID).WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user WHERE id = ?").WithArgs(u.ID).
+		WillReturnRows(rows)
 	mock.ExpectExec("UPDATE user SET (.+) WHERE (.+)").WithArgs(u.ID, u.AccountID, u.Name, u.EMail, u.Role, u.Password, u.ID).WillReturnError(sql.ErrConnDone)
 	mock.ExpectRollback()
 	return db, mock

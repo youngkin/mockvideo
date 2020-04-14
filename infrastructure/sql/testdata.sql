@@ -1,3 +1,5 @@
+USE mockvideo;
+
 INSERT INTO account (accountHolderName, nickName, serviceAddress, billingAddress, email, phone) 
 VALUES ("mickey dolenz", "mickey", "123 Laurel Canyon Drive", "123 Laurel Canyon Drive", "mickeyd@gmail.com", "7132224512");
 

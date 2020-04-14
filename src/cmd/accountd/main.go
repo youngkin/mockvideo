@@ -81,7 +81,9 @@ func main() {
 			constants.ErrorCode:      constants.UnableToOpenConfigErrorCode,
 			constants.ErrorDetail:    err.Error(),
 		}).Fatal(constants.UnableToOpenConfig)
+		os.Exit(1)
 	}
+
 	configs, err := config.LoadConfig(configFile)
 	if err != nil {
 		logger.WithFields(log.Fields{
@@ -89,6 +91,7 @@ func main() {
 			constants.ErrorCode:      constants.UnableToLoadConfigErrorCode,
 			constants.ErrorDetail:    err.Error(),
 		}).Fatal(constants.UnableToLoadConfig)
+		os.Exit(1)
 	}
 
 	secrets, err := config.LoadSecrets(*secretsDir)
@@ -98,6 +101,7 @@ func main() {
 			constants.ErrorCode:      constants.UnableToLoadSecretsErrorCode,
 			constants.ErrorDetail:    err.Error(),
 		}).Fatal(constants.UnableToLoadSecrets)
+		os.Exit(1)
 	}
 
 	loglevel, ok := configs["logLevel"]
@@ -121,6 +125,7 @@ func main() {
 			constants.ErrorCode:   constants.UnableToGetDBConnStrErrorCode,
 			constants.ErrorDetail: err.Error(),
 		}).Fatal(constants.UnableToGetDBConnStr)
+		os.Exit(1)
 	}
 
 	db, err := sql.Open("mysql", connStr)
@@ -129,8 +134,18 @@ func main() {
 			constants.ErrorCode:   constants.UnableToOpenDBConnErrorCode,
 			constants.ErrorDetail: err.Error(),
 		}).Fatal(constants.UnableToOpenDBConn)
+		os.Exit(1)
 	}
 	defer db.Close()
+
+	err = db.Ping()
+	if err != nil {
+		logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.UnableToOpenDBConnErrorCode,
+			constants.ErrorDetail: err.Error(),
+		}).Fatal(constants.UnableToOpenDBConn + ": database unreachable")
+		os.Exit(1)
+	}
 
 	//
 	// Setup endpoints and start service
@@ -141,6 +156,7 @@ func main() {
 			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,
 			constants.ErrorDetail: err.Error(),
 		}).Fatal(constants.UnableToCreateHTTPHandler)
+		os.Exit(1)
 	}
 
 	healthHandler := http.HandlerFunc(handlers.HealthFunc)
@@ -150,6 +166,14 @@ func main() {
 	mux.Handle("/users/", usersHandler) // Required to properly route requests to '/users/{id}. Don't understand why the above route isn't sufficient
 	mux.Handle("/accountdhealth", healthHandler)
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.MalformedURLErrorCode,
+			constants.ErrorDetail: errors.New(constants.MalformedURL),
+		}).Info("handling request")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(constants.MalformedURL))
+	})
 
 	// A simple endpoint to sleep for a period of time before responding.
 	// This is useful for testing SIGTERM handling. Uncomment as needed.

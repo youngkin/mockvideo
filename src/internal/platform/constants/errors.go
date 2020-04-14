@@ -39,7 +39,7 @@ const (
 	JSONMarshalingError = "JSON Marshaling Error"
 
 	// MalformedURL indicates there was a problem with the structure of the URL
-	MalformedURL = "Malformed URL"
+	MalformedURL = "Malformed URL, URL must be of the form /users, /users/{id}, /accountdhealth, or /metrics"
 
 	// NoError is needed for situations where ErrCode is returned, but no error occurred
 	NoError = "No error occurred"

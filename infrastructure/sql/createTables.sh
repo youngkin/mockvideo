@@ -1,1 +1,1 @@
-mysql -uadmin -h10.0.0.100 -pXXXXX < ./create.sql
+mysql -uadmin -h10.0.0.100 -padmin < ./create.sql
