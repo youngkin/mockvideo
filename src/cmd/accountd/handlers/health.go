@@ -14,5 +14,5 @@ perhaps an overall health indication taken from several, service appropriate, me
 
 // HealthFunc returns current health/status of the service
 func HealthFunc(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("customerd is healthy"))
+	w.Write([]byte("I'm Healthy!"))
 }

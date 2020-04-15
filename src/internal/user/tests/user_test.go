@@ -18,30 +18,13 @@ import (
 	"github.com/youngkin/mockvideo/src/internal/user"
 )
 
-type AllCustsTests struct {
-	testName     string
-	shouldPass   bool
-	setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, user.Users)
-	teardownFunc func(*testing.T, sqlmock.Sqlmock)
-}
-type SingleCustTests struct {
-	testName     string
-	custID       int
-	shouldPass   bool
-	setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *user.User)
-	teardownFunc func(*testing.T, sqlmock.Sqlmock)
-}
-type InsertCustTests struct {
-	testName       string
-	user           user.User
-	expectedUserID int64
-	shouldPass     bool
-	setupFunc      func(*testing.T, user.User) (*sql.DB, sqlmock.Sqlmock)
-	teardownFunc   func(*testing.T, sqlmock.Sqlmock)
-}
-
 func TestGetAllCustomers(t *testing.T) {
-	tests := []AllCustsTests{
+	tests := []struct {
+		testName     string
+		shouldPass   bool
+		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, user.Users)
+		teardownFunc func(*testing.T, sqlmock.Sqlmock)
+	}{
 		{
 			testName:     "testGetAllCustomersSuccess",
 			shouldPass:   true,
@@ -99,7 +82,13 @@ func TestGetAllCustomers(t *testing.T) {
 }
 
 func TestGetCustomer(t *testing.T) {
-	tests := []SingleCustTests{
+	tests := []struct {
+		testName     string
+		custID       int
+		shouldPass   bool
+		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *user.User)
+		teardownFunc func(*testing.T, sqlmock.Sqlmock)
+	}{
 		{
 			testName:     "testGetCustomerSuccess",
 			custID:       1,
@@ -145,7 +134,14 @@ func TestGetCustomer(t *testing.T) {
 }
 
 func TestInsertCustomer(t *testing.T) {
-	tests := []InsertCustTests{
+	tests := []struct {
+		testName       string
+		user           user.User
+		expectedUserID int64
+		shouldPass     bool
+		setupFunc      func(*testing.T, user.User) (*sql.DB, sqlmock.Sqlmock)
+		teardownFunc   func(*testing.T, sqlmock.Sqlmock)
+	}{
 		{
 			testName: "testInsertCustomerSuccess",
 			user: user.User{

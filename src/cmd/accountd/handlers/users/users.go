@@ -78,6 +78,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		fmt.Fprintf(w, "Sorry, only GET, PUT, POST, and DELETE methods are supported.")
 		w.WriteHeader(http.StatusNotImplemented)
+		w.Write([]byte("Sorry, only GET, PUT, POST, and DELETE methods are supported."))
 	}
 
 }
@@ -85,8 +86,9 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	completeRequest := func(httpStatus int) {
+	completeRequest := func(httpStatus int, msg string) {
 		w.WriteHeader(httpStatus)
+		w.Write([]byte(msg))
 		userRqstDur.WithLabelValues(strconv.Itoa(httpStatus)).
 			Observe(float64(time.Since(start)) / float64(time.Second))
 	}
@@ -100,7 +102,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 			constants.Path:        r.URL.Path,
 			constants.ErrorDetail: err,
 		}).Error(constants.MalformedURL)
-		completeRequest(http.StatusBadRequest)
+		completeRequest(http.StatusBadRequest, constants.MalformedURL)
 		return
 	}
 
@@ -116,44 +118,46 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		errMsg := constants.UserRqstError
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errReason,
 			constants.ErrorDetail: err.Error(),
 			constants.HTTPStatus:  http.StatusInternalServerError,
-		}).Error(constants.UserRqstError)
+		}).Error(errMsg)
 		statusCode := http.StatusInternalServerError
 		if errReason == constants.MalformedURLErrorCode {
 			statusCode = http.StatusBadRequest
+			errMsg = constants.MalformedURL
 		}
-		completeRequest(statusCode)
+		completeRequest(statusCode, errMsg)
 		return
 	}
 
-	custFound := true
+	userFound := true
 	switch p := payload.(type) {
 	case nil:
-		custFound = false
+		userFound = false
 	case *user.User:
 		if p == nil {
-			custFound = false
+			userFound = false
 		}
 	case *user.Users:
 		if len(p.Users) == 0 {
-			custFound = false
+			userFound = false
 		}
 	default:
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:  constants.UserTypeConversionErrorCode,
 			constants.HTTPStatus: http.StatusInternalServerError,
 		}).Error(constants.UserTypeConversionError)
-		completeRequest(http.StatusInternalServerError)
+		completeRequest(http.StatusInternalServerError, constants.UserTypeConversionError)
 		return
 	}
-	if !custFound {
+	if !userFound {
 		h.logger.WithFields(log.Fields{
 			constants.HTTPStatus: http.StatusNotFound,
-		}).Error("Customer not found")
-		completeRequest(http.StatusNotFound)
+		}).Error("User not found")
+		completeRequest(http.StatusNotFound, "")
 		return
 	}
 
@@ -164,7 +168,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 			constants.HTTPStatus:  http.StatusBadRequest,
 			constants.ErrorDetail: err.Error(),
 		}).Error(constants.JSONMarshalingError)
-		completeRequest(http.StatusBadRequest)
+		completeRequest(http.StatusBadRequest, constants.JSONMarshalingError)
 		return
 	}
 
@@ -238,6 +242,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 			constants.ErrorDetail: err.Error(),
 		}).Error(constants.JSONDecodingError)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(constants.JSONDecodingError))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
@@ -258,6 +263,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 			constants.ErrorDetail: err,
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(constants.MalformedURL))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
@@ -271,6 +277,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 			constants.ErrorDetail: errMsg,
 		}).Error(constants.InvalidInsertError)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(constants.InvalidInsertError))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
@@ -284,24 +291,30 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 			constants.ErrorDetail: errMsg,
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(constants.MalformedURL))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
 	userID, errReason, err := h.insertUser(user)
 	if err != nil {
+		errMsg := constants.DBUpSertError
 		status := http.StatusInternalServerError
+		errCode := constants.DBUpSertErrorCode
 		if errReason == constants.DBInsertDuplicateUserErrorCode {
 			// Invalid to insert a duplicate user, this is a client error hence the StatusBadRequest
 			status = http.StatusBadRequest
+			errMsg = constants.DBInsertDuplicateUserError
+			errCode = constants.DBInsertDuplicateUserErrorCode
 		}
 		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.DBUpSertErrorCode,
+			constants.ErrorCode:   errCode,
 			constants.HTTPStatus:  status,
 			constants.Path:        r.URL.Path,
 			constants.ErrorDetail: err,
-		}).Error(constants.DBUpSertError)
+		}).Error(errMsg)
 		w.WriteHeader(status)
+		w.Write([]byte(errMsg))
 		userRqstDur.WithLabelValues(strconv.Itoa(status)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
@@ -327,6 +340,7 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	u, pathNodes, err := h.parseRqst(r)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(constants.RqstParsingError))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
@@ -340,23 +354,27 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 			constants.ErrorDetail: errMsg,
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(constants.MalformedURL))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
 	errCode, err := user.UpdateUser(h.db, u)
 	if err != nil {
+		errMsg := constants.DBUpSertError
 		httpStatus := http.StatusInternalServerError
 		if errCode == constants.DBInvalidRequestCode {
 			httpStatus = http.StatusBadRequest
+			errMsg = constants.DBInvalidRequest
 		}
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
 			constants.HTTPStatus:  httpStatus,
 			constants.Path:        r.URL.Path,
 			constants.ErrorDetail: err,
-		}).Error(errCode)
+		}).Error(errMsg)
 		w.WriteHeader(httpStatus)
+		w.Write([]byte(errMsg))
 		userRqstDur.WithLabelValues(strconv.Itoa(httpStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
@@ -378,6 +396,7 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		}).Error(constants.MalformedURL)
 
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(constants.MalformedURL))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
@@ -390,6 +409,7 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 			constants.ErrorDetail: fmt.Sprintf("expecting resource path like /users/{id}, got %+v", pathNodes),
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(constants.MalformedURL))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
@@ -404,6 +424,7 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		}).Error(constants.MalformedURL)
 
 		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(constants.MalformedURL))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
@@ -416,6 +437,7 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 			constants.ErrorDetail: err,
 		}).Error(errCode)
 		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(constants.DBDeleteError))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}

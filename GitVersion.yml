@@ -1,0 +1,14 @@
+assembly-versioning-scheme: MajorMinorPatch
+mode: Mainline
+next-version: 0.1.15
+branches:
+  master:
+    mode: ContinuousDeployment
+    tag: ''
+  pull-request: {}
+  develop:
+    mode: ContinuousDeployment
+    tag: ''
+ignore:
+  sha: []
+merge-message-formats: {}

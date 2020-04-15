@@ -47,40 +47,19 @@ func init() {
 	//  })
 }
 
-type TestCase struct {
-	testName           string
-	shouldPass         bool
-	url                string
-	expectedHTTPStatus int
-	updateResourceID   string
-	expectedResourceID string
-	postData           string
-	user               user.User
-	setupFunc          func(*testing.T, user.User) (*sql.DB, sqlmock.Sqlmock)
-	teardownFunc       func(*testing.T, sqlmock.Sqlmock)
-}
-
-type Tests struct {
-	testName           string
-	url                string
-	shouldPass         bool
-	setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, user.Users)
-	teardownFunc       func(*testing.T, sqlmock.Sqlmock)
-	expectedHTTPStatus int
-}
-
-// CustTests differs from 'Tests' in the setupFunc and teardownFunc function signatures
-type CustTests struct {
-	testName           string
-	url                string
-	shouldPass         bool
-	setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *user.User)
-	teardownFunc       func(*testing.T, sqlmock.Sqlmock)
-	expectedHTTPStatus int
-}
-
 func TestPOSTUser(t *testing.T) {
-	tcs := []TestCase{
+	tcs := []struct {
+		testName           string
+		shouldPass         bool
+		url                string
+		expectedHTTPStatus int
+		updateResourceID   string
+		expectedResourceID string
+		postData           string
+		user               user.User
+		setupFunc          func(*testing.T, user.User) (*sql.DB, sqlmock.Sqlmock)
+		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
+	}{
 		{
 			testName:           "testInsertUserSuccess",
 			shouldPass:         true,
@@ -88,14 +67,14 @@ func TestPOSTUser(t *testing.T) {
 			expectedHTTPStatus: http.StatusCreated,
 			expectedResourceID: "/users/1",
 			postData: `
-			{
-				"AccountID":1,
-				"Name":"mickey dolenz",
-				"eMail":"mickeyd@gmail.com",
-				"role":1,
-				"password":"myawesomepassword"
-			}
-			`,
+				{
+					"AccountID":1,
+					"Name":"mickey dolenz",
+					"eMail":"mickeyd@gmail.com",
+					"role":1,
+					"password":"myawesomepassword"
+				}
+				`,
 			user: user.User{
 				AccountID: 1,
 				Name:      "mickey dolenz",
@@ -114,14 +93,14 @@ func TestPOSTUser(t *testing.T) {
 			expectedHTTPStatus: http.StatusBadRequest,
 			expectedResourceID: "",
 			postData: `
-			{
-				"AccountID":1,
-				"Name":"mickey dolenz",
-				"eMail":"mickeyd@gmail.com",
-				"role":1,
-				"password":"myawesomepassword"
-			}
-			`,
+				{
+					"AccountID":1,
+					"Name":"mickey dolenz",
+					"eMail":"mickeyd@gmail.com",
+					"role":1,
+					"password":"myawesomepassword"
+				}
+				`,
 			user: user.User{
 				AccountID: 1,
 				Name:      "mickey dolenz",
@@ -140,15 +119,15 @@ func TestPOSTUser(t *testing.T) {
 			expectedHTTPStatus: http.StatusBadRequest,
 			expectedResourceID: "",
 			postData: `
-			{
-				"ID": 1,
-				"AccountID":1,
-				"Name":"mickey dolenz",
-				"eMail":"mickeyd@gmail.com",
-				"role":1,
-				"password":"myawesomepassword"
-			}
-			`,
+				{
+					"ID": 1,
+					"AccountID":1,
+					"Name":"mickey dolenz",
+					"eMail":"mickeyd@gmail.com",
+					"role":1,
+					"password":"myawesomepassword"
+				}
+				`,
 			user: user.User{
 				AccountID: 1,
 				Name:      "mickey dolenz",
@@ -200,7 +179,18 @@ func TestPOSTUser(t *testing.T) {
 func TestPUTUser(t *testing.T) {
 	client := &http.Client{}
 
-	tcs := []TestCase{
+	tcs := []struct {
+		testName           string
+		shouldPass         bool
+		url                string
+		expectedHTTPStatus int
+		updateResourceID   string
+		expectedResourceID string
+		postData           string
+		user               user.User
+		setupFunc          func(*testing.T, user.User) (*sql.DB, sqlmock.Sqlmock)
+		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
+	}{
 		{
 			testName:           "testUpdateUserSuccess",
 			shouldPass:         true,
@@ -360,7 +350,18 @@ func TestPUTUser(t *testing.T) {
 func TestDELETEUser(t *testing.T) {
 	client := &http.Client{}
 
-	tcs := []TestCase{
+	tcs := []struct {
+		testName           string
+		shouldPass         bool
+		url                string
+		expectedHTTPStatus int
+		updateResourceID   string
+		expectedResourceID string
+		postData           string
+		user               user.User
+		setupFunc          func(*testing.T, user.User) (*sql.DB, sqlmock.Sqlmock)
+		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
+	}{
 		{
 			testName:           "testDeleteUserSuccess",
 			shouldPass:         true,
@@ -458,7 +459,14 @@ func TestDELETEUser(t *testing.T) {
 	}
 }
 func TestGetAllUsers(t *testing.T) {
-	tcs := []Tests{
+	tcs := []struct {
+		testName           string
+		url                string
+		shouldPass         bool
+		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, user.Users)
+		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
+		expectedHTTPStatus int
+	}{
 		{
 			testName:           "testGetAllUsersSuccess",
 			url:                "/users",
@@ -546,7 +554,14 @@ func TestGetAllUsers(t *testing.T) {
 }
 
 func TestGetUser(t *testing.T) {
-	tcs := []CustTests{
+	tcs := []struct {
+		testName           string
+		url                string
+		shouldPass         bool
+		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *user.User)
+		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
+		expectedHTTPStatus int
+	}{
 		{
 			testName:           "testGetUserSuccess",
 			url:                "/users/1",

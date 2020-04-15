@@ -34,7 +34,7 @@ const (
 	InvalidInsertError = "Unexpected User.ID in insert request"
 
 	// JSONDecodingError indicates that there was a problem decoding JSON input
-	JSONDecodingError = "JSON Decoding Error"
+	JSONDecodingError = "JSON Decoding Error, possibly malformed JSON object"
 	// JSONMarshalingError indicates that there was a problem un/marshaling JSON
 	JSONMarshalingError = "JSON Marshaling Error"
 
@@ -46,7 +46,7 @@ const (
 
 	// RqstParsingError indicates that an error occurred while the path and/or body of the was
 	// being evaluated.
-	RqstParsingError = "Request parsing error"
+	RqstParsingError = "Request parsing error, possible malformed JSON"
 
 	// UnableToCreateHTTPHandler indications that there was a problem creating an http handler
 	UnableToCreateHTTPHandler = "Unable to create HTTP handler"
