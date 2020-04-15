@@ -10,7 +10,7 @@ replicaCount: 4 ## This is the number of kube nodes. Less for testing maybe, mor
 
 image:
   repository: ryoungkin/accountd
-  tag: 0.1.12
+  tag: 0.1.13
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
