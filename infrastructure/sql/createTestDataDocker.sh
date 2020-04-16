@@ -1,0 +1,1 @@
+/usr/local/bin/mysql -uadmin -h10.0.0.223 -P 6603 -padmin mockvideo < ./testdata.sql

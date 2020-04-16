@@ -28,7 +28,6 @@ then
 elif [ $1 = "buildARM" ] 
 then
     buildARM
-elif   
 else
     echo "usage:"
     echo "  build.sh [pre | build | buildARM]"
