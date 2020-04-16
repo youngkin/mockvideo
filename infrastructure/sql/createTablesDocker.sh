@@ -1,1 +1,1 @@
-/usr/local/bin/mysql -uroot -h10.0.0.223 -P 6603 < ./create.sql
+/usr/local/bin/mysql -uroot -h10.0.0.223 -P 6603 < /Users/rich_youngkin/Software/repos/mockvideo/infrastructure/sql/create.sql
