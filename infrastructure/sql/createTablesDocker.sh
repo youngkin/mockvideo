@@ -1,0 +1,1 @@
+/usr/local/bin/mysql -uroot -h10.0.0.223 -P 6603 < ./create.sql

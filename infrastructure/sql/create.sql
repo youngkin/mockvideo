@@ -1,6 +1,9 @@
 DROP DATABASE IF EXISTS mockvideo;
 CREATE DATABASE mockvideo;
 
+CREATE USER 'admin'@'%' IDENTIFIED BY 'admin';
+GRANT ALL   ON *.*   TO 'admin'@'%'   WITH GRANT OPTION;
+
 USE mockvideo;
 
 # user represents an authorized individual on an account
