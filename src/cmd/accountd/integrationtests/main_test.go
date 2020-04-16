@@ -14,13 +14,14 @@ const (
 )
 
 func TestTest(t *testing.T) {
-	cmdStr := "curl -i http://localhost:5000/users"
-	fmt.Println(cmdStr)
-	// Takes a while for the MySQL container to start
+	// Takes a while for the accountd container to start
 	time.Sleep(500 * time.Millisecond)
 
-	if err := runCmd(cmdStr); err != nil {
+	if err := runCmd("curl -i http://localhost:5000/users"); err != nil {
 		t.Errorf("Error curl-ing endpoint: %s", err)
+	}
+	if err := runCmd("/usr/local/bin/docker logs accountd"); err != nil {
+		t.Errorf("Error printing accountd logs: %s", err)
 	}
 }
 

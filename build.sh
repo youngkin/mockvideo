@@ -4,7 +4,6 @@ pre() {
     go vet ./...
     go fmt ./...
     /Users/rich_youngkin/Software/repos/go/bin/golint
-    go test -race ./...
 }
 
 build() {
@@ -19,6 +18,10 @@ buildARM() {
     cd -
 }
 
+test() {
+    go test -race ./...
+}
+
 if [ $1 = "pre" ] 
 then
     pre
@@ -28,8 +31,11 @@ then
 elif [ $1 = "buildARM" ] 
 then
     buildARM
+elif [ $1 = "test" ]
+then
+    test
 else
     echo "usage:"
-    echo "  build.sh [pre | build | buildARM]"
+    echo "  build.sh [pre | build | buildARM | test]"
     exit 1
 fi
