@@ -1,7 +1,7 @@
 DROP DATABASE IF EXISTS mockvideo;
 CREATE DATABASE mockvideo;
 
-CREATE USER 'admin'@'%' IDENTIFIED BY 'admin';
+CREATE USER IF NOT EXISTS 'admin'@'%' IDENTIFIED BY 'admin';
 GRANT ALL   ON *.*   TO 'admin'@'%'   WITH GRANT OPTION;
 
 USE mockvideo;
