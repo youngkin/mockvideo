@@ -143,6 +143,9 @@ func main() {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToOpenDBConnErrorCode,
 			constants.ErrorDetail: err.Error(),
+			constants.DBHost:      configs["dbHost"],
+			constants.DBPort:      configs["dbPort"],
+			constants.DBName:      configs["dbName"],
 		}).Fatal(constants.UnableToOpenDBConn + ": database unreachable")
 		os.Exit(1)
 	}
@@ -155,6 +158,9 @@ func main() {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,
 			constants.ErrorDetail: err.Error(),
+			constants.DBHost:      configs["dbHost"],
+			constants.DBPort:      configs["dbPort"],
+			constants.DBName:      configs["dbName"],
 		}).Fatal(constants.UnableToCreateHTTPHandler)
 		os.Exit(1)
 	}

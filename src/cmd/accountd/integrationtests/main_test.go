@@ -20,7 +20,7 @@ func TestTest(t *testing.T) {
 	if err := runCmd("curl -i http://localhost:5000/users"); err != nil {
 		t.Errorf("Error curl-ing endpoint: %s", err)
 	}
-	if err := runCmd("/usr/local/bin/docker logs accountd"); err != nil {
+	if err := runCmd("docker logs accountd"); err != nil {
 		t.Errorf("Error printing accountd logs: %s", err)
 	}
 }
@@ -29,13 +29,12 @@ func TestMain(m *testing.M) {
 	setup()
 	code := m.Run()
 	teardown()
-
 	os.Exit(code)
 }
 
 func setup() {
 	// Do setup here, like launch docker containers for MySQL and the accountd service
-	if err := runCmd("/usr/local/bin/docker run -d --name mysql -p 6603:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:latest"); err != nil {
+	if err := runCmd("docker run -d --name mysql -p 6603:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:latest"); err != nil {
 		os.Exit(dockerFailed)
 	}
 
@@ -57,13 +56,15 @@ func setup() {
 	}
 
 	// Start accountd service
-	if err := runCmd("/usr/local/bin/docker run --name accountd -d -p 5000:5000 -v /Users/rich_youngkin/Software/repos/mockvideo/src/cmd/accountd/testdata:/opt/mockvideo/accountd jenkins/accountd:latest"); err != nil {
+	dCmd := fmt.Sprintf("docker run --name accountd -d -p 5000:5000 -v %s/src/cmd/accountd/testdata:/opt/mockvideo/accountd jenkins/accountd:latest", getBuildDir())
+	fmt.Println(dCmd)
+	if err := runCmd(dCmd); err != nil {
 		os.Exit(dockerFailed)
 	}
 }
 
 func teardown() {
-	if err := runCmd("/usr/local/bin/docker rm -f mysql accountd"); err != nil {
+	if err := runCmd("docker rm -f mysql accountd"); err != nil {
 		os.Exit(dockerFailed)
 	}
 }
@@ -83,8 +84,8 @@ func runCmd(cmdStr string) error {
 }
 
 func initDB() error {
-	createTbls := "/Users/rich_youngkin/Software/repos/mockvideo/infrastructure/sql/createTablesDocker.sh"
-	popTbls := "/Users/rich_youngkin/Software/repos/mockvideo/infrastructure/sql/createTestDataDocker.sh"
+	createTbls := fmt.Sprintf("%s/infrastructure/sql/createTablesDocker.sh", getBuildDir())
+	popTbls := fmt.Sprintf("%s/infrastructure/sql/createTestDataDocker.sh", getBuildDir())
 
 	if err := runCmd(createTbls); err != nil {
 		return err
@@ -95,4 +96,16 @@ func initDB() error {
 	}
 
 	return nil
+}
+
+func getBuildDir() string {
+	bd, found := os.LookupEnv("TRAVIS_BUILD_DIR") // For Travis CI
+	if !found {
+		bd, found = os.LookupEnv("WORKSPACE") // For Jenkins
+	}
+	if !found {
+		bd = "/Users/rich_youngkin/Software/repos/mockvideo" // Locally
+	}
+
+	return bd
 }

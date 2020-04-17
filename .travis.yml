@@ -1,21 +1,25 @@
 language: go
 
-# go version
 go:
-  - 1.12.x
+  - 1.14.x
 
 os:
   - linux
 
-# Enable use of Go Modules
-env:
-  - GO111MODULE=on 
+services:
+  - docker
 
-before_install:
+before_script:
   - go get -v golang.org/x/lint/golint
+  - env GOOS=linux go build ./src/cmd/accountd
+  - docker build -t jenkins/accountd:latest -f ./src/cmd/accountd/DockerfileTravis .
 
 script:
-  - go test -v  ./...
+  - go test ./src/internal/...
+  - go test ./src/cmd/accountd/handlers/...
+
+after_script:
+  - docker rmi jenkins/accountd:latest
 
 notifications:
   # Get email notifications on builds (sent to email associated with Travis account)
