@@ -1,7 +1,7 @@
 .history
 .vscode
-accountd
-src/cmd/accountd/accountd
+./accountd
+./src/cmd/accountd/accountd
 Mock_Video_Metrics_-_Grafana_and_Rich__bash__and_Notes.jpg
 Telegraf__system_dashboard_-_Grafana-5min-testrun.jpg
 Telegraf__system_dashboard_-_Grafana.jpg

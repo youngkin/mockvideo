@@ -1,9 +1,12 @@
 package integrationtests
 
 import (
+	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 )
@@ -13,17 +16,11 @@ const (
 	initDBFailed
 )
 
-func TestTest(t *testing.T) {
-	// Takes a while for the accountd container to start
-	time.Sleep(500 * time.Millisecond)
-
-	if err := runCmd("curl -i http://localhost:5000/users"); err != nil {
-		t.Errorf("Error curl-ing endpoint: %s", err)
-	}
-	if err := runCmd("docker logs accountd"); err != nil {
-		t.Errorf("Error printing accountd logs: %s", err)
-	}
-}
+var (
+	update           = flag.Bool("update", false, "update .golden files")
+	goldenFileDir    = "testdata"
+	goldenFileSuffix = ".golden"
+)
 
 func TestMain(m *testing.M) {
 	setup()
@@ -108,4 +105,21 @@ func getBuildDir() string {
 	}
 
 	return bd
+}
+
+func updateGoldenFile(t *testing.T, testName string, contents string) {
+	gf := filepath.Join(goldenFileDir, testName+goldenFileSuffix)
+	t.Log("update golden file")
+	if err := ioutil.WriteFile(gf, []byte(contents), 0644); err != nil {
+		t.Fatalf("failed to update golden file: %s", err)
+	}
+}
+
+func readGoldenFile(t *testing.T, testName string) string {
+	gf := filepath.Join(goldenFileDir, testName+goldenFileSuffix)
+	gfc, err := ioutil.ReadFile(gf)
+	if err != nil {
+		t.Fatalf("failed reading golden file: %s", err)
+	}
+	return string(gfc)
 }
