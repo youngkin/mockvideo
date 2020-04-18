@@ -1,3 +1,7 @@
+// Copyright (c) 2020 Richard Youngkin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 package integrationtests
 
 import (
@@ -7,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -23,16 +28,19 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	setup()
+	accountdPID := setup()
 	code := m.Run()
 	teardown()
+	accountdPID.Signal(syscall.SIGTERM) // accountd is run in the background, need to terminate it
 	os.Exit(code)
 }
 
-func setup() {
+func setup() *os.Process {
 	// Do setup here, like launch docker containers for MySQL and the accountd service
-	if err := runCmd("docker run -d --name mysql -p 6603:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:latest"); err != nil {
-		os.Exit(dockerFailed)
+	if _, found := os.LookupEnv("TRAVIS_BUILD_DIR"); !found { // For Travis CI, Travis will start MySQL
+		if err := runCmd("docker run -d --name mysql -p 6603:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:latest"); err != nil {
+			os.Exit(dockerFailed)
+		}
 	}
 
 	// Takes a while for the MySQL container to start
@@ -53,16 +61,25 @@ func setup() {
 	}
 
 	// Start accountd service
-	dCmd := fmt.Sprintf("docker run --name accountd -d -p 5000:5000 -v %s/src/cmd/accountd/testdata:/opt/mockvideo/accountd jenkins/accountd:latest", getBuildDir())
+	// dCmd := fmt.Sprintf("docker run --name accountd -d -p 5000:5000 -v %s/src/cmd/accountd/testdata:/opt/mockvideo/accountd jenkins/accountd:latest", getBuildDir())
+	dCmd := `/Users/rich_youngkin/Software/repos/mockvideo/src/cmd/accountd/accountd -configFile /Users/rich_youngkin/Software/repos/mockvideo/src/cmd/accountd/testdata/config/config -secretsDir /Users/rich_youngkin/Software/repos/mockvideo/src/cmd/accountd/testdata/secrets`
+	if _, found := os.LookupEnv("TRAVIS_BUILD_DIR"); found { // For Travis CI need to tweak config path
+		dCmd = fmt.Sprintf("%s/accountd -configFile %s/src/cmd/accountd/testdata/travis/config/config -secretsDir %s/src/cmd/accountd/testdata/travis/secrets",
+			getBuildDir(), getBuildDir(), getBuildDir())
+	}
 	fmt.Println(dCmd)
-	if err := runCmd(dCmd); err != nil {
+	p, err := startCmd(dCmd)
+	if err != nil {
 		os.Exit(dockerFailed)
 	}
+
+	return p
 }
 
 func teardown() {
-	if err := runCmd("docker rm -f mysql accountd"); err != nil {
-		os.Exit(dockerFailed)
+	if _, found := os.LookupEnv("TRAVIS_BUILD_DIR"); !found {
+		// For Travis CI there is no MySQL container to stop
+		runCmd("docker rm -f mysql")
 	}
 }
 
@@ -80,9 +97,37 @@ func runCmd(cmdStr string) error {
 	return nil
 }
 
+// startCmd runs 'cmdStr' in the background
+func startCmd(cmdStr string) (*os.Process, error) {
+	// The shell in this command 'MUST' be 'bash'. 'sh' apparently creates a different
+	// process tree structure where the command run, 'cmdStr' in this case, is in a child
+	// process. Signals sent to the 'os.Process' returned from this function get set to
+	// the executing shell, not the command run by the shell ('cmdStr'). Funny thing is,
+	// this behavior only shows up in Travis-CI. Using 'sh' on a Mac works just fine. See
+	// https://github.com/travis-ci/travis-ci/issues/8811 for details.
+	cmd := exec.Command("/bin/bash", "-c", cmdStr)
+
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stdout
+
+	// run command
+	if err := cmd.Start(); err != nil {
+		fmt.Println("Error:", err)
+		return cmd.Process, err
+	}
+	return cmd.Process, nil
+}
+
 func initDB() error {
-	createTbls := fmt.Sprintf("%s/infrastructure/sql/createTablesDocker.sh", getBuildDir())
-	popTbls := fmt.Sprintf("%s/infrastructure/sql/createTestDataDocker.sh", getBuildDir())
+	var createTbls, popTbls string
+	if _, found := os.LookupEnv("TRAVIS_BUILD_DIR"); found { // For Travis CI
+		createTbls = fmt.Sprintf("%s/infrastructure/sql/createTablesTravis.sh", getBuildDir())
+		popTbls = fmt.Sprintf("%s/infrastructure/sql/createTestDataTravis.sh", getBuildDir())
+
+	} else {
+		createTbls = fmt.Sprintf("%s/infrastructure/sql/createTablesDocker.sh", getBuildDir())
+		popTbls = fmt.Sprintf("%s/infrastructure/sql/createTestDataDocker.sh", getBuildDir())
+	}
 
 	if err := runCmd(createTbls); err != nil {
 		return err

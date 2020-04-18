@@ -22,6 +22,18 @@ test() {
     go test -race ./...
 }
 
+allLocal() {
+    pre
+    build
+    test
+}
+
+allARM() {
+    pre
+    build
+    test
+}
+
 if [ $1 = "pre" ] 
 then
     pre
@@ -34,8 +46,14 @@ then
 elif [ $1 = "test" ]
 then
     test
+elif [ $1 = "allLocal" ]
+then
+    test
+elif [ $1 = "allARM" ]
+then
+    test
 else
     echo "usage:"
-    echo "  build.sh [pre | build | buildARM | test]"
+    echo "  build.sh [pre | build | buildARM | test | allLocal | allARM]"
     exit 1
 fi

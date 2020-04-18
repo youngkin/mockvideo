@@ -1,0 +1,5 @@
+port=5000
+logLevel=4
+dbHost=127.0.0.1
+dbPort=3306
+dbName=mockvideo

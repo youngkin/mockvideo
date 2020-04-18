@@ -7,19 +7,14 @@ os:
   - linux
 
 services:
-  - docker
+  - mysql
 
 before_script:
   - go get -v golang.org/x/lint/golint
-  - env GOOS=linux go build ./src/cmd/accountd
-  - docker build -t jenkins/accountd:latest -f ./src/cmd/accountd/DockerfileTravis .
+  - env CGO_ENABLED=0 GOOS=linux go build  -a -ldflags="-extldflags=-static" $TRAVIS_BUILD_DIR/src/cmd/accountd
 
 script:
-  - go test ./src/internal/...
-  - go test ./src/cmd/accountd/handlers/...
-
-after_script:
-  - docker rmi jenkins/accountd:latest
+  - go test ./... -v
 
 notifications:
   # Get email notifications on builds (sent to email associated with Travis account)

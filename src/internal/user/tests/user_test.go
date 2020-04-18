@@ -18,7 +18,7 @@ import (
 	"github.com/youngkin/mockvideo/src/internal/user"
 )
 
-func TestGetAllCustomers(t *testing.T) {
+func TestGetAllUsers(t *testing.T) {
 	tests := []struct {
 		testName     string
 		shouldPass   bool
@@ -26,19 +26,19 @@ func TestGetAllCustomers(t *testing.T) {
 		teardownFunc func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
-			testName:     "testGetAllCustomersSuccess",
+			testName:     "testGetAllUsersSuccess",
 			shouldPass:   true,
 			setupFunc:    DBCallSetupHelper,
 			teardownFunc: DBCallTeardownHelper,
 		},
 		{
-			testName:     "testGetAllCustomersQueryFailure",
+			testName:     "testGetAllUsersQueryFailure",
 			shouldPass:   false,
 			setupFunc:    DBCallQueryErrorSetupHelper,
 			teardownFunc: DBCallTeardownHelper,
 		},
 		{
-			testName:     "testGetAllCustomersRowScanFailure",
+			testName:     "testGetAllUsersRowScanFailure",
 			shouldPass:   false,
 			setupFunc:    DBCallRowScanErrorSetupHelper,
 			teardownFunc: DBCallTeardownHelper,
@@ -81,7 +81,7 @@ func TestGetAllCustomers(t *testing.T) {
 	}
 }
 
-func TestGetCustomer(t *testing.T) {
+func TestGetUser(t *testing.T) {
 	tests := []struct {
 		testName     string
 		custID       int
@@ -90,21 +90,21 @@ func TestGetCustomer(t *testing.T) {
 		teardownFunc func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
-			testName:     "testGetCustomerSuccess",
+			testName:     "testGetUserSuccess",
 			custID:       1,
 			shouldPass:   true,
 			setupFunc:    GetUserSetupHelper,
 			teardownFunc: DBCallTeardownHelper,
 		},
 		{
-			testName:     "testGetCustomerNoRow",
+			testName:     "testGetUserNoRow",
 			custID:       1,
 			shouldPass:   true, // true because we get a nil 'User' if not found
 			setupFunc:    DBUserErrNoRowsSetupHelper,
 			teardownFunc: DBCallTeardownHelper,
 		},
 		{
-			testName:     "testGetCustomerQueryError",
+			testName:     "testGetUserQueryError",
 			custID:       1,
 			shouldPass:   false,
 			setupFunc:    DBUserOtherErrSetupHelper,
@@ -133,7 +133,7 @@ func TestGetCustomer(t *testing.T) {
 	}
 }
 
-func TestInsertCustomer(t *testing.T) {
+func TestInsertUser(t *testing.T) {
 	tests := []struct {
 		testName       string
 		user           user.User
@@ -143,7 +143,7 @@ func TestInsertCustomer(t *testing.T) {
 		teardownFunc   func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
-			testName: "testInsertCustomerSuccess",
+			testName: "testInsertUserSuccess",
 			user: user.User{
 				AccountID: 1,
 				Name:      "mama cass",
@@ -157,7 +157,7 @@ func TestInsertCustomer(t *testing.T) {
 			teardownFunc:   DBCallTeardownHelper,
 		},
 		{
-			testName: "testInsertCustomererror",
+			testName: "testInsertUsererror",
 			user: user.User{
 				AccountID: 1,
 				Name:      "mama cass",

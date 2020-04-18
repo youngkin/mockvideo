@@ -43,22 +43,11 @@ pertaining to:
 */
 
 // TODO:
-//	-1	TODO: Use config struct
-//	6.	TODO: Kube logging
-//	7.	TODO: ELK stack for logging
-//	10.	TODO: Create build system that will compile and create docker image
+//	1.	TODO: Load limiting (e.g., leaky bucket, and/or Itsio/Traefik?)
+//	2.	TODO: Circuit breakers on DB
 //	11.	TODO: Use https
 //	4.	TODO: Config parms (configMap?), monitor for changes restarting if necessary
-//	5.	ONGOING: Prometheus
-//	-2	DONE: Use error codes in errors (e.g., nil db pointer passed text message should also include the error code)
-//	0.	DONE: Rethink errors, see TODO in errors.go
-//	1.	DONE: HTTP connection configs (e.g., timeouts)
-//  1.  DONE: DB configs, use secrets for user name and password
-//	2.	DONE: Don't panic, add error handling
-//	3.	DONE: Use logging levels
-//	8.	DONE: Graphana for Prometheus
-//	9.	DONE: Helm/Kube deployment (with P9S support)
-//	9.	DONE: Travis CI
+//	5.	TODO: ONGOING: Prometheus, instrument database calls
 
 func main() {
 	configFileName := flag.String("configFile",
@@ -115,6 +104,11 @@ func main() {
 			log.SetLevel(log.Level(level))
 		}
 	}
+
+	logger.WithFields(log.Fields{
+		constants.ConfigFileName: *configFileName,
+		constants.SecretsDirName: *secretsDir,
+	}).Info("accountd service starting")
 
 	//
 	// Setup DB connection
@@ -213,7 +207,7 @@ func main() {
 			constants.DBHost:         configs["dbHost"],
 			constants.DBPort:         configs["dbPort"],
 			constants.DBName:         configs["dbName"],
-		}).Info("accountd service starting")
+		}).Info("accountd service running")
 
 		if err := s.ListenAndServe(); err != http.ErrServerClosed {
 			logger.Fatal(err)
