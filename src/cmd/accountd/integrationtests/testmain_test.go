@@ -61,7 +61,7 @@ func setup() *os.Process {
 	}
 
 	// Start accountd service
-	// dCmd := fmt.Sprintf("docker run --name accountd -d -p 5000:5000 -v %s/src/cmd/accountd/testdata:/opt/mockvideo/accountd jenkins/accountd:latest", getBuildDir())
+	// dCmd := fmt.Sprintf("docker run --name accountd -d -p 5000:5000 -v %s/src/cmd/accountd/testdata:/opt/mockvideo/accountd local/accountd:latest", getBuildDir())
 	dCmd := `/Users/rich_youngkin/Software/repos/mockvideo/src/cmd/accountd/accountd -configFile /Users/rich_youngkin/Software/repos/mockvideo/src/cmd/accountd/testdata/config/config -secretsDir /Users/rich_youngkin/Software/repos/mockvideo/src/cmd/accountd/testdata/secrets`
 	if _, found := os.LookupEnv("TRAVIS_BUILD_DIR"); found { // For Travis CI need to tweak config path
 		dCmd = fmt.Sprintf("%s/accountd -configFile %s/src/cmd/accountd/testdata/travis/config/config -secretsDir %s/src/cmd/accountd/testdata/travis/secrets",

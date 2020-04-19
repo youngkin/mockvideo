@@ -18,6 +18,13 @@ buildARM() {
     cd -
 }
 
+dockerBuild() {
+    buildARM
+    cd src/cmd/accountd
+    docker build -t local/accountd .
+    cd -
+}
+
 test() {
     go test -race ./...
 }
@@ -30,8 +37,7 @@ allLocal() {
 
 allARM() {
     pre
-    build
-    test
+    dockerBuild
 }
 
 if [ $1 = "pre" ] 
@@ -43,17 +49,20 @@ then
 elif [ $1 = "buildARM" ] 
 then
     buildARM
+elif [ $1 = "dockerBuild" ] 
+then
+    dockerBuild
 elif [ $1 = "test" ]
 then
     test
 elif [ $1 = "allLocal" ]
 then
-    test
+    allLocal
 elif [ $1 = "allARM" ]
 then
-    test
+    allARM
 else
     echo "usage:"
-    echo "  build.sh [pre | build | buildARM | test | allLocal | allARM]"
+    echo "  build.sh [pre | build | buildARM | dockerBuild | test | allLocal | allARM]"
     exit 1
 fi
