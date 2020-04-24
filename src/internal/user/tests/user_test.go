@@ -84,28 +84,28 @@ func TestGetAllUsers(t *testing.T) {
 func TestGetUser(t *testing.T) {
 	tests := []struct {
 		testName     string
-		custID       int
+		userID       int
 		shouldPass   bool
 		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *user.User)
 		teardownFunc func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
 			testName:     "testGetUserSuccess",
-			custID:       1,
+			userID:       1,
 			shouldPass:   true,
 			setupFunc:    GetUserSetupHelper,
 			teardownFunc: DBCallTeardownHelper,
 		},
 		{
 			testName:     "testGetUserNoRow",
-			custID:       1,
+			userID:       1,
 			shouldPass:   true, // true because we get a nil 'User' if not found
 			setupFunc:    DBUserErrNoRowsSetupHelper,
 			teardownFunc: DBCallTeardownHelper,
 		},
 		{
 			testName:     "testGetUserQueryError",
-			custID:       1,
+			userID:       1,
 			shouldPass:   false,
 			setupFunc:    DBUserOtherErrSetupHelper,
 			teardownFunc: DBCallTeardownHelper,
@@ -117,7 +117,7 @@ func TestGetUser(t *testing.T) {
 			db, mock, expected := tc.setupFunc(t)
 			defer db.Close()
 
-			actual, err := user.GetUser(db, tc.custID)
+			actual, err := user.GetUser(db, tc.userID)
 
 			validateExpectedErrors(t, err, tc.shouldPass)
 
@@ -137,7 +137,7 @@ func TestInsertUser(t *testing.T) {
 	tests := []struct {
 		testName       string
 		user           user.User
-		expectedUserID int64
+		expectedUserID int
 		shouldPass     bool
 		setupFunc      func(*testing.T, user.User) (*sql.DB, sqlmock.Sqlmock)
 		teardownFunc   func(*testing.T, sqlmock.Sqlmock)

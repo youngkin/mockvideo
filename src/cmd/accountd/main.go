@@ -144,10 +144,22 @@ func main() {
 		os.Exit(1)
 	}
 
+	maxBulkOps := 10
+	maxBulkOpsStr, ok := configs["maxConcurrentBulkOperations"]
+	if !ok {
+		logger.Info("max bulk operations configuration unavailable (configs[maxConcurrentBulkOperations]), defaulting to 10")
+		maxBulkOpsStr = "10"
+	} else {
+		maxBulkOps, err = strconv.Atoi(maxBulkOpsStr)
+		if err != nil {
+			logger.Warnf("maxConcurrentBulkOperations <%s> invalid, defaulting to %d", maxBulkOpsStr, maxBulkOps)
+		}
+	}
+
 	//
 	// Setup endpoints and start service
 	//
-	usersHandler, err := users.NewUserHandler(db, logger)
+	usersHandler, err := users.NewUserHandler(db, logger, maxBulkOps)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,
@@ -174,15 +186,6 @@ func main() {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(constants.MalformedURL))
 	})
-
-	// A simple endpoint to sleep for a period of time before responding.
-	// This is useful for testing SIGTERM handling. Uncomment as needed.
-	// mux.HandleFunc("/sleeper", func(w http.ResponseWriter, r *http.Request) {
-	// 	logger.WithFields(log.Fields{
-	// 		constants.ServiceName: "sleeper",
-	// 	}).Info("handling request")
-	// 	time.Sleep(10 * time.Second)
-	// })
 
 	port, ok := configs["port"]
 	if !ok {

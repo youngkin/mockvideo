@@ -69,6 +69,19 @@ echo "    RUN curl http://"$VIDEOADDR"/users"
 echo "    EXPECT to see 5 users without DELETE-d user Brian Wilson"
 curl http://$VIDEOADDR/users | jq "."
 
+echo ""
+echo "Bulk POST multiple users"
+echo "    RUN curl -i -X POST http://"$VIDEOADDR"/users/ -H "Bulk-Request: true" -H "Content-Type: application/json" -d "{\"users\":[{\"accountid\":1,\"name\":\"Brian Wilson\",\"email\":\"goodvibrations@gmail.com\",\"role\":1,\"password\":\"helpmerhonda\"},{\"accountid\":1,\"name\":\"Frank Zappa\",\"email\":\"donteatyellowsnow@gmail.com\",\"role\":1,\"password\":\"searsponcho\"}]}""
+echo "    EXPECT an overall HTTP Status of 201 Created, and a 'results' JSON body showing the results of each individual request"
+curl -i -X POST http://$VIDEOADDR/users/ -H "Bulk-Request: true" -H "Content-Type: application/json" -d "{\"users\":[{\"accountid\":1,\"name\":\"Brian Wilson\",\"email\":\"goodvibrations@gmail.com\",\"role\":1,\"password\":\"helpmerhonda\"},{\"accountid\":1,\"name\":\"Frank Zappa\",\"email\":\"donteatyellowsnow@gmail.com\",\"role\":1,\"password\":\"searsponcho\"}]}"
+
+echo ""
+echo ""
+echo "Get all users"
+echo "    RUN curl http://"$VIDEOADDR"/users"
+echo "    EXPECT to see 7 users with Brian Wilson and Frank Zappa"
+curl http://$VIDEOADDR/users | jq "."
+
 
 ###
 ### Failure Tests

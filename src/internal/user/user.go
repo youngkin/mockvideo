@@ -46,7 +46,7 @@ type User struct {
 
 // Users is a collection (slice) of User
 type Users struct {
-	Users []*User `json:"Users"`
+	Users []*User `json:"users"`
 }
 
 // GetAllUsers will return all customers known to the application
@@ -96,7 +96,7 @@ func GetUser(db *sql.DB, id int) (*User, error) {
 }
 
 // InsertUser takes the provided user data, inserts it into the db, and returns the newly created user ID.
-func InsertUser(db *sql.DB, u User) (int64, constants.ErrCode, error) {
+func InsertUser(db *sql.DB, u User) (int, constants.ErrCode, error) {
 	err := validateUser(u)
 	if err != nil {
 		return 0, constants.UserValidationErrorCode, errors.Annotate(err, "User validation failure")
@@ -118,7 +118,9 @@ func InsertUser(db *sql.DB, u User) (int64, constants.ErrCode, error) {
 		return 0, constants.DBUpSertErrorCode, errors.Annotate(err, "error getting user ID")
 	}
 
-	return id, constants.NoErrorCode, nil
+	// TODO: Consider not casting 'id' to an int. Depending on where this code runs, an 'int'
+	// TODO: is either 32 or 64 bytes, so this cast *could* be OK
+	return int(id), constants.NoErrorCode, nil
 }
 
 // UpdateUser takes the provided user data, inserts it into the db, and returns the newly created user ID

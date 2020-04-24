@@ -53,7 +53,6 @@ func TestPOSTUser(t *testing.T) {
 		shouldPass         bool
 		url                string
 		expectedHTTPStatus int
-		updateResourceID   string
 		expectedResourceID string
 		postData           string
 		user               user.User
@@ -144,7 +143,7 @@ func TestPOSTUser(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			db, mock := tc.setupFunc(t, tc.user)
 
-			srvHandler, err := NewUserHandler(db, logger)
+			srvHandler, err := NewUserHandler(db, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
 			}
@@ -311,7 +310,7 @@ func TestPUTUser(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			db, mock := tc.setupFunc(t, tc.user)
 
-			srvHandler, err := NewUserHandler(db, logger)
+			srvHandler, err := NewUserHandler(db, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
 			}
@@ -424,7 +423,7 @@ func TestDELETEUser(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			db, mock := tc.setupFunc(t, tc.user)
 
-			srvHandler, err := NewUserHandler(db, logger)
+			srvHandler, err := NewUserHandler(db, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
 			}
@@ -511,7 +510,7 @@ func TestGetAllUsers(t *testing.T) {
 				user.HREF = "/users/" + strconv.Itoa(user.ID)
 			}
 
-			userHandler, err := NewUserHandler(db, logger)
+			userHandler, err := NewUserHandler(db, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
@@ -541,6 +540,8 @@ func TestGetAllUsers(t *testing.T) {
 				if err != nil {
 					t.Fatalf("an error '%s' was not expected Marshaling %+v", err, expected)
 				}
+
+				t.Logf("ExpectedUsers: %s\n", string(mExpected))
 
 				if bytes.Compare(mExpected, actual) != 0 {
 					t.Errorf("expected %+v, got %+v", string(mExpected), string(actual))
@@ -606,7 +607,7 @@ func TestGetUser(t *testing.T) {
 				expected.HREF = tc.url
 			}
 
-			userHandler, err := NewUserHandler(db, logger)
+			userHandler, err := NewUserHandler(db, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
 			}

@@ -36,6 +36,10 @@ func TestMain(m *testing.M) {
 }
 
 func setup() *os.Process {
+	if err := runCmd("cd ..; go build; cd -"); err != nil {
+		os.Exit(dockerFailed)
+	}
+
 	// Do setup here, like launch docker containers for MySQL and the accountd service
 	if _, found := os.LookupEnv("TRAVIS_BUILD_DIR"); !found { // For Travis CI, Travis will start MySQL
 		if err := runCmd("docker run -d --name mysql -p 6603:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:latest"); err != nil {
@@ -43,9 +47,34 @@ func setup() *os.Process {
 		}
 	}
 
+	setupDB(15)
+
+	// Start accountd service
+	// Uncomment to run accoutd in docker. If this is uncommented the next 'dCmd := ...' line will have to
+	// be commented-out.
+	// dCmd := fmt.Sprintf("docker run --name accountd -d -p 5000:5000 -v %s/src/cmd/accountd/testdata:/opt/mockvideo/accountd local/accountd:latest", getBuildDir())
+	dCmd := `../accountd -configFile ../testdata/config/config -secretsDir ../testdata/secrets`
+	if _, found := os.LookupEnv("TRAVIS_BUILD_DIR"); found { // For Travis CI need to tweak config path
+		dCmd = fmt.Sprintf("%s/accountd -configFile %s/src/cmd/accountd/testdata/travis/config/config -secretsDir %s/src/cmd/accountd/testdata/travis/secrets",
+			getBuildDir(), getBuildDir(), getBuildDir())
+	}
+	fmt.Println(dCmd)
+	// Use 'startCmd()' here so accountd will be started in the background. We need this, the main goroutine,
+	// to continue without waiting for accountd to exit (which it won't do until it's sent a SIGTERM)
+	p, err := startCmd(dCmd)
+	if err != nil {
+		os.Exit(dockerFailed)
+	}
+	// Pause while service starts
+	time.Sleep(time.Millisecond * 100)
+
+	return p
+}
+
+func setupDB(retries int) {
 	// Takes a while for the MySQL container to start
 	var err error
-	for i := 0; i < 15; i++ {
+	for i := 0; i < retries; i++ {
 		time.Sleep(1 * time.Second)
 
 		if err = initDB(); err != nil {
@@ -59,21 +88,6 @@ func setup() *os.Process {
 	if err != nil {
 		os.Exit(initDBFailed)
 	}
-
-	// Start accountd service
-	// dCmd := fmt.Sprintf("docker run --name accountd -d -p 5000:5000 -v %s/src/cmd/accountd/testdata:/opt/mockvideo/accountd local/accountd:latest", getBuildDir())
-	dCmd := `/Users/rich_youngkin/Software/repos/mockvideo/src/cmd/accountd/accountd -configFile /Users/rich_youngkin/Software/repos/mockvideo/src/cmd/accountd/testdata/config/config -secretsDir /Users/rich_youngkin/Software/repos/mockvideo/src/cmd/accountd/testdata/secrets`
-	if _, found := os.LookupEnv("TRAVIS_BUILD_DIR"); found { // For Travis CI need to tweak config path
-		dCmd = fmt.Sprintf("%s/accountd -configFile %s/src/cmd/accountd/testdata/travis/config/config -secretsDir %s/src/cmd/accountd/testdata/travis/secrets",
-			getBuildDir(), getBuildDir(), getBuildDir())
-	}
-	fmt.Println(dCmd)
-	p, err := startCmd(dCmd)
-	if err != nil {
-		os.Exit(dockerFailed)
-	}
-
-	return p
 }
 
 func teardown() {
@@ -102,9 +116,9 @@ func startCmd(cmdStr string) (*os.Process, error) {
 	// The shell in this command 'MUST' be 'bash'. 'sh' apparently creates a different
 	// process tree structure where the command run, 'cmdStr' in this case, is in a child
 	// process. Signals sent to the 'os.Process' returned from this function get set to
-	// the executing shell, not the command run by the shell ('cmdStr'). Funny thing is,
-	// this behavior only shows up in Travis-CI. Using 'sh' on a Mac works just fine. See
-	// https://github.com/travis-ci/travis-ci/issues/8811 for details.
+	// the executing shell, and are not propagated to the command run by the shell ('cmdStr').
+	// Funny thing is,this behavior only shows up in Travis-CI. Using 'sh' on a Mac works just
+	// fine. See https://github.com/travis-ci/travis-ci/issues/8811 for details.
 	cmd := exec.Command("/bin/bash", "-c", cmdStr)
 
 	cmd.Stdout = os.Stdout

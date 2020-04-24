@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -221,6 +222,198 @@ func TestPOSTPUTDELETEUser(t *testing.T) {
 
 				if expected != string(actual) {
 					t.Errorf("expected %s, got %s", expected, string(actual))
+				}
+			}
+
+		})
+	}
+}
+
+// TestBulkPOSTPUTUser verifies that bulk POST and PUT operations work as expected.
+// Caveat: Verification can't depend on simple comparison of the output from
+// the HTTP response. This is because the user ID won't necessarily be the
+// same across tests because of the concurrent nature of bulk request
+// processing. So tests that POST multiple users will only verify the names on the
+// assumption that if the names are present in the response then the operation must
+// have succeeded. As such, the use of golden files isn't applicable.
+func TestBulkPOSTPUTUser(t *testing.T) {
+	client := &http.Client{}
+	setupDB(15) // reset DB so the tests in this section are deterministic, or at least as they can be
+
+	tcs := []struct {
+		testName           string
+		shouldPass         bool
+		method             string
+		url                string
+		expectedHTTPStatus int
+		expectedGETSTatus  int
+		shouldContain      []string
+		httpHeader         [2]string
+		rqstData           string
+	}{
+		{
+			testName:           "testBulkPOST1UserSuccess",
+			shouldPass:         true,
+			method:             http.MethodPost,
+			url:                "http://localhost:5000/users",
+			expectedHTTPStatus: http.StatusCreated,
+			expectedGETSTatus:  http.StatusOK,
+			shouldContain:      []string{"BeachBoy Mike Love"},
+			httpHeader:         [2]string{"Bulk-Request", "true"},
+			rqstData: `{"users":[
+					{
+						"accountid":1,
+						"name":"BeachBoy Mike Love",
+						"email":"californialgirls@gmail.com",
+						"role":1,
+						"password":"sloopjohnb"
+					}
+				]}`,
+		},
+		{
+			testName:           "testBulkPUT1UserSuccess",
+			shouldPass:         true,
+			method:             http.MethodPut,
+			url:                "http://localhost:5000/users",
+			expectedHTTPStatus: http.StatusOK,
+			expectedGETSTatus:  http.StatusOK,
+			shouldContain:      []string{"Solo Mike Love"},
+			httpHeader:         [2]string{"Bulk-Request", "true"},
+			rqstData: `{"users":[
+					{
+						"accountid":1,
+						"id": 6,
+						"name":"Solo Mike Love",
+						"email":"californialgirls@gmail.com",
+						"role":1,
+						"password":"sloopjohnb"
+					}
+				]}`,
+		},
+		{
+			testName:           "testBulkPOST2UsersSuccess",
+			shouldPass:         true,
+			method:             http.MethodPost,
+			url:                "http://localhost:5000/users",
+			expectedHTTPStatus: http.StatusCreated,
+			expectedGETSTatus:  http.StatusOK,
+			shouldContain:      []string{"Brian Wilson", "Frank Zappa"},
+			httpHeader:         [2]string{"Bulk-Request", "true"},
+			rqstData: `{"users":[
+					{
+						"accountid":1,
+						"name":"Brian Wilson",
+						"email":"goodvibrations@gmail.com",
+						"role":1,
+						"password":"helpmerhonda"
+					},
+					{
+						"accountid":1,
+						"name":"Frank Zappa",
+						"email":"donteatyellowsnow@gmail.com",
+						"role":1,
+						"password":"searsponcho"
+					}
+				]}`,
+		},
+		{
+			// When Bulk-Request header isn't set the expected request is not a bulk request.
+			// Sending a bulk request body should cause an error.
+			testName:           "testBulkPOSTHeaderNotSet",
+			shouldPass:         false,
+			method:             http.MethodPost,
+			url:                "http://localhost:5000/users",
+			expectedHTTPStatus: http.StatusBadRequest,
+			expectedGETSTatus:  http.StatusTeapot, // NA, shouldn't even test this
+			shouldContain:      []string{"", ""},
+			httpHeader:         [2]string{"Some-Random-Header", "SomeValue"},
+			rqstData: `{"users":[
+					{
+						"accountid":1,
+						"name":"Brian Wilson",
+						"email":"goodvibrations@gmail.com",
+						"role":1,
+						"password":"helpmerhonda"
+					},
+					{
+						"accountid":1,
+						"name":"Frank Zappa",
+						"email":"donteatyellowsnow@gmail.com",
+						"role":1,
+						"password":"searsponcho"
+					}
+				]}`,
+		},
+		{
+			testName:           "testBulkPOSTHeaderInvalid",
+			shouldPass:         false,
+			method:             http.MethodPost,
+			url:                "http://localhost:5000/users",
+			expectedHTTPStatus: http.StatusBadRequest,
+			expectedGETSTatus:  http.StatusTeapot, // NA, shouldn't even test this
+			shouldContain:      []string{"Brian Wilson", "Frank Zappa"},
+			httpHeader:         [2]string{"Bulk-Request", "ShouldBeTrueOrFalse"},
+			rqstData: `{"users":[
+					{
+						"accountid":1,
+						"name":"Brian Wilson",
+						"email":"goodvibrations@gmail.com",
+						"role":1,
+						"password":"helpmerhonda"
+					},
+					{
+						"accountid":1,
+						"name":"Frank Zappa",
+						"email":"donteatyellowsnow@gmail.com",
+						"role":1,
+						"password":"searsponcho"
+					}
+				]}`,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.testName, func(t *testing.T) {
+			req, err := http.NewRequest(tc.method, tc.url, bytes.NewBuffer([]byte(tc.rqstData)))
+			if err != nil {
+				t.Fatalf("an error '%s' was not expected creating HTTP request", err)
+			}
+			req.Header.Set(tc.httpHeader[0], tc.httpHeader[1])
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatalf("an error '%s' was not expected calling (client.Do()) accountd server", err)
+			}
+
+			status := resp.StatusCode
+			if status != tc.expectedHTTPStatus {
+				t.Errorf("expected StatusCode = %d, got %d", tc.expectedHTTPStatus, status)
+			}
+
+			if tc.shouldPass {
+				resp, err = http.Get(tc.url)
+				if err != nil {
+					t.Fatalf("error '%s' was not expected calling accountd server", err)
+				}
+				defer resp.Body.Close()
+
+				status = resp.StatusCode
+				if status != tc.expectedGETSTatus {
+					t.Errorf("expected StatusCode = %d, got %d", tc.expectedGETSTatus, status)
+				}
+
+				actual, err := ioutil.ReadAll(resp.Body)
+				if err != nil {
+					t.Errorf("an error '%s' was not expected reading response body", err)
+				}
+
+				// TODO: REMOVE
+				t.Logf("GET Results: %s", string(actual))
+
+				for _, name := range tc.shouldContain {
+					if ok := strings.Contains(string(actual), name); !ok {
+						t.Errorf("expected %s substring to be contained within %s", name, string(actual))
+					}
 				}
 			}
 

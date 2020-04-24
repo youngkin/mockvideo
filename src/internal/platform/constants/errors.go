@@ -19,7 +19,7 @@ const (
 	// DBDeleteError is an indication of a DB error during a DELETE operation
 	DBDeleteError = "a DB error occurred during a DELETE operation"
 	// DBInsertDuplicateUserError indicates an attempt to insert a duplicate row
-	DBInsertDuplicateUserError = "attempt to insert dupliecate user"
+	DBInsertDuplicateUserError = "attempt to insert duplicate user"
 	// DBInvalidRequest indicates an invalid DB request, like attempting to update a non-existent user
 	DBInvalidRequest = "attempted update on a non-existent user"
 	// DBRowScanError indicates results from DB query could not be processed

@@ -39,8 +39,9 @@ import (
 )
 
 type handler struct {
-	db     *sql.DB
-	logger *log.Entry
+	db         *sql.DB
+	logger     *log.Entry
+	maxBulkOps int
 }
 
 var (
@@ -228,32 +229,16 @@ func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interfa
 func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	//
-	// Get user out of request body and validate
-	//
-	d := json.NewDecoder(r.Body)
-	d.DisallowUnknownFields() // error if user sends extra data
-	user := user.User{}
-	err := d.Decode(&user)
+	users := &user.Users{}
+	user := &user.User{}
+	isBulkRqst, msg, err := h.decodeRequest(r, user, users)
 	if err != nil {
-		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.JSONDecodingErrorCode,
-			constants.HTTPStatus:  http.StatusBadRequest,
-			constants.ErrorDetail: err.Error(),
-		}).Error(constants.JSONDecodingError)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(constants.JSONDecodingError))
+		w.Write([]byte(msg))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
-		return
-	}
-	if d.More() {
-		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.JSONDecodingErrorCode,
-			constants.ErrorDetail: err.Error(),
-		}).Warn(constants.JSONDecodingError)
 	}
 
-	// Expecting t URL.Path '/users'
+	// Expecting URL.Path '/users'
 	pathNodes, err := h.getURLPathNodes(r.URL.Path)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
@@ -264,20 +249,6 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(constants.MalformedURL))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
-		return
-	}
-
-	if user.ID != 0 { // User ID must *NOT* be populated (i.e., with a non-zero value) on an insert
-		errMsg := fmt.Sprintf("expected User.ID > 0, got User.ID = %d", user.ID)
-		h.logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.InvalidInsertErrorCode,
-			constants.HTTPStatus:  http.StatusBadRequest,
-			constants.Path:        r.URL.Path,
-			constants.ErrorDetail: errMsg,
-		}).Error(constants.InvalidInsertError)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(constants.InvalidInsertError))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
@@ -296,7 +267,39 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID, errReason, err := h.insertUser(user)
+	if isBulkRqst {
+		h.handleRqstMultipleUsers(start, w, r.URL.Path, *users, http.MethodPost)
+		return
+	}
+
+	// Logging is handled by 'handlePostSingleUser()'
+	resp := h.handlePostSingleUser(*user)
+	resourceID := fmt.Sprintf("/users/%d", resp.User.ID)
+	w.Header().Add("Location", resourceID)
+	w.WriteHeader(resp.HTTPStatus)
+	w.Write([]byte(resp.ErrMsg))
+	userRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+}
+
+func (h handler) handlePostSingleUser(u user.User) Response {
+	h.logger.Debugf("handlePostSingleUser: user %+v", u)
+	if u.ID != 0 { // User ID must *NOT* be populated (i.e., with a non-zero value) on an insert
+		errMsg := fmt.Sprintf("expected User.ID > 0, got User.ID = %d", u.ID)
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.InvalidInsertErrorCode,
+			constants.HTTPStatus:  http.StatusBadRequest,
+			constants.Path:        fmt.Sprintf("/users/%d", u.ID),
+			constants.ErrorDetail: errMsg,
+		}).Error(constants.InvalidInsertError)
+		return Response{
+			HTTPStatus: http.StatusBadRequest,
+			ErrMsg:     errMsg,
+			ErrReason:  constants.UserRqstErrorCode,
+			User:       u,
+		}
+	}
+
+	userID, errReason, err := user.InsertUser(h.db, u)
 	if err != nil {
 		errMsg := constants.DBUpSertError
 		status := http.StatusInternalServerError
@@ -310,48 +313,48 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
 			constants.HTTPStatus:  status,
-			constants.Path:        r.URL.Path,
+			constants.Path:        fmt.Sprintf("/users/%d", u.ID),
 			constants.ErrorDetail: err,
 		}).Error(errMsg)
-		w.WriteHeader(status)
-		w.Write([]byte(errMsg))
-		userRqstDur.WithLabelValues(strconv.Itoa(status)).Observe(float64(time.Since(start)) / float64(time.Second))
-		return
+		return Response{
+			HTTPStatus: http.StatusBadRequest,
+			ErrMsg:     errMsg,
+			ErrReason:  errCode,
+			User:       u,
+		}
 	}
 
-	w.Header().Add("Location", fmt.Sprintf("/users/%d", userID))
-	w.WriteHeader(http.StatusCreated)
+	u.ID = userID
+	u.HREF = fmt.Sprintf("/users/%d", userID)
 
-	userRqstDur.WithLabelValues(strconv.Itoa(http.StatusCreated)).Observe(float64(time.Since(start)) / float64(time.Second))
-}
-
-func (h handler) insertUser(u user.User) (int64, constants.ErrCode, error) {
-	id, errReason, err := user.InsertUser(h.db, u)
-	if err != nil {
-		return -1, errReason, errors.Annotate(err, "error inserting user")
+	return Response{
+		HTTPStatus: http.StatusCreated,
+		ErrMsg:     "",
+		ErrReason:  constants.NoErrorCode,
+		User:       u,
 	}
-	return id, errReason, nil
+
 }
 
 func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	// parseRqst() logs parsing errors, no need to log again
-	u, pathNodes, err := h.parseRqst(r)
+	users := &user.Users{}
+	user := &user.User{}
+	isBulkRqst, msg, err := h.decodeRequest(r, user, users)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(constants.RqstParsingError))
+		w.Write([]byte(msg))
 		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
-		return
 	}
 
-	if len(pathNodes) != 2 {
-		errMsg := fmt.Sprintf("expecting resource path like /users/{id}, got %+v", pathNodes)
+	pathNodes, err := h.getURLPathNodes(r.URL.Path)
+	if err != nil {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.MalformedURLErrorCode,
 			constants.HTTPStatus:  http.StatusBadRequest,
 			constants.Path:        r.URL.Path,
-			constants.ErrorDetail: errMsg,
+			constants.ErrorDetail: err,
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(constants.MalformedURL))
@@ -359,7 +362,35 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	errCode, err := user.UpdateUser(h.db, u)
+	// Expecting URL.Path '/users/{id}' or '/users' (on a bulk PUT)
+	if len(pathNodes) != 1 && len(pathNodes) != 2 {
+		errMsg := fmt.Sprintf("expecting resource path like '/users' or '/users/{id}', got %+v", pathNodes)
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.MalformedURLErrorCode,
+			constants.HTTPStatus:  http.StatusBadRequest,
+			constants.Path:        r.URL.Path,
+			constants.ErrorDetail: errMsg,
+		}).Error(constants.MalformedURL)
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(errMsg))
+		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		return
+	}
+
+	if isBulkRqst {
+		h.handleRqstMultipleUsers(start, w, r.URL.Path, *users, http.MethodPut)
+		return
+	}
+
+	// Logging is handled by 'handlePostSingleUser()'
+	resp := h.handlePutSingleUser(*user)
+	w.WriteHeader(resp.HTTPStatus)
+	w.Write([]byte(resp.ErrMsg))
+	userRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+}
+
+func (h handler) handlePutSingleUser(usr user.User) Response {
+	errCode, err := user.UpdateUser(h.db, usr)
 	if err != nil {
 		errMsg := constants.DBUpSertError
 		httpStatus := http.StatusInternalServerError
@@ -370,17 +401,136 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
 			constants.HTTPStatus:  httpStatus,
-			constants.Path:        r.URL.Path,
+			constants.Path:        fmt.Sprintf("/users/%d", usr.ID),
 			constants.ErrorDetail: err,
 		}).Error(errMsg)
-		w.WriteHeader(httpStatus)
-		w.Write([]byte(errMsg))
-		userRqstDur.WithLabelValues(strconv.Itoa(httpStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+		resp := Response{
+			HTTPStatus: httpStatus,
+			ErrMsg:     errMsg,
+			ErrReason:  errCode,
+			User:       usr,
+		}
+		return resp
+	}
+
+	return Response{
+		HTTPStatus: http.StatusOK,
+		ErrMsg:     "",
+		ErrReason:  constants.NoErrorCode,
+		User:       usr,
+	}
+}
+
+func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter, path string, users user.Users, method string) {
+	h.logger.Debugf("handleRqstMultipleUsers for %s", method)
+	bp := NewBulkProcessor(h.maxBulkOps)
+	br := NewBulkRequest(users, method, h)
+	rqstCompleteC := make(chan Response)
+	numUsers := len(users.Users)
+
+	for i := 0; i < numUsers; i++ {
+		go h.handleConcurrentRqst(br.Requests[i], bp.RequestC, rqstCompleteC)
+	}
+
+	h.logger.Debugf("handleRqstMultipleUsers: Started %d %s goroutines", numUsers, method)
+	responses := BulkResponse{}
+	overallHTTPStatus := http.StatusOK
+	if method == http.MethodPost {
+		overallHTTPStatus = http.StatusCreated
+	}
+
+	for i := 0; i < numUsers; i++ {
+		resp := <-rqstCompleteC
+		responses.Results = append(responses.Results, resp)
+		if resp.HTTPStatus != http.StatusCreated && resp.HTTPStatus != http.StatusOK {
+			overallHTTPStatus = http.StatusConflict
+		}
+		if resp.ErrReason != constants.NoErrorCode {
+			h.logger.WithFields(log.Fields{
+				constants.ErrorCode:   resp.ErrReason,
+				constants.HTTPStatus:  resp.HTTPStatus,
+				constants.ErrorDetail: resp.ErrMsg,
+			}).Error(resp.ErrMsg)
+		}
+	}
+
+	responses.OverallStatus = overallHTTPStatus
+	marshResp, err := json.Marshal(responses)
+	if err != nil {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.JSONMarshalingErrorCode,
+			constants.HTTPStatus:  http.StatusInternalServerError,
+			constants.ErrorDetail: err.Error(),
+		}).Error(constants.JSONMarshalingError)
+		w.WriteHeader(http.StatusInternalServerError)
+		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	userRqstDur.WithLabelValues(strconv.Itoa(http.StatusCreated)).Observe(float64(time.Since(start)) / float64(time.Second))
+	w.WriteHeader(overallHTTPStatus)
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(marshResp)
+
+	bp.Stop()
+	h.logger.Debugf("handleRqstMultipleUsers: reponse sent, bulkprocessor stopped for %s", method)
+	userRqstDur.WithLabelValues(strconv.Itoa(overallHTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+	return
+}
+
+func (h handler) handleConcurrentRqst(rqst Request, rqstC chan Request, rqstCompC chan Response) {
+	h.logger.Debugf("handleConcurrentRqst: request %+v", rqst)
+	rqstC <- rqst
+	h.logger.Debug("handleConcurrentRqst: request sent")
+	resp := <-rqst.ResponseC
+	h.logger.Debugf("handleConcurrentRqst: response %+v received", rqst)
+	rqstCompC <- resp
+	h.logger.Debug("handleConcurrentRqst: response sent")
+}
+
+func (h handler) decodeRequest(r *http.Request, user *user.User, users *user.Users) (bool, string, error) {
+	// Get user(s) out of request body and validate
+	d := json.NewDecoder(r.Body)
+	d.DisallowUnknownFields() // error if user sends extra data
+	var err error
+	isBulkRqst := false
+	hVal, ok := r.Header["Bulk-Request"]
+
+	if ok {
+		isBulkRqst, err = strconv.ParseBool(hVal[0])
+		if err != nil {
+			errMsg := fmt.Sprintf("Expected 'true' or 'false' value for 'Bulk-Request' header, got %s", hVal[0])
+			h.logger.WithFields(log.Fields{
+				constants.ErrorCode:   constants.UserRqstErrorCode,
+				constants.HTTPStatus:  http.StatusBadRequest,
+				constants.ErrorDetail: errMsg,
+				"Bulk-Request:":       isBulkRqst,
+			}).Warn(constants.JSONDecodingError)
+			return isBulkRqst, errMsg, err
+		}
+	}
+
+	if isBulkRqst {
+		err = d.Decode(&users)
+	} else {
+		err = d.Decode(&user)
+	}
+	if err != nil {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.JSONDecodingErrorCode,
+			constants.HTTPStatus:  http.StatusBadRequest,
+			constants.ErrorDetail: err.Error(),
+			"Bulk-Request:":       isBulkRqst,
+		}).Error(constants.JSONDecodingError)
+		return isBulkRqst, constants.JSONDecodingError, err
+	}
+	if d.More() {
+		h.logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.JSONDecodingErrorCode,
+			constants.ErrorDetail: err.Error(),
+		}).Warn(constants.JSONDecodingError)
+	}
+
+	return isBulkRqst, "", nil
 }
 
 func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
@@ -514,13 +664,15 @@ func (h handler) parseRqst(r *http.Request) (user.User, []string, error) {
 }
 
 // NewUserHandler returns a *http.Handler configured with a database connection
-func NewUserHandler(db *sql.DB, logger *log.Entry) (http.Handler, error) {
+func NewUserHandler(db *sql.DB, logger *log.Entry, maxBulkOps int) (http.Handler, error) {
 	if db == nil {
 		return nil, errors.New("non-nil sql.DB connection required")
 	}
 	if logger == nil {
 		return nil, errors.New("non-nil log.Entry  required")
 	}
-
-	return handler{db: db, logger: logger}, nil
+	if maxBulkOps == 0 {
+		return nil, errors.New("maxBulkOps must be greater than zero")
+	}
+	return handler{db: db, maxBulkOps: maxBulkOps, logger: logger}, nil
 }
