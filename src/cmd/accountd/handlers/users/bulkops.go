@@ -67,14 +67,21 @@ func NewBulkRequest(users api.Users, method string, handler handler) BulkRequest
 type BulkProcesor struct {
 	RequestC chan Request
 	close    chan struct{}
+	// limitRqstC acts as a semaphore to limit the number of concurrent requests.
+	// It can accept up to 10 messages before blocking. To use, pass a message into
+	// the channel to indicate a request for resources; to free up resources accept
+	// a message from the channel. These operations should surround any calls requiring
+	// resources (i.e., processing Request-s on 'RequestC'.
+	limitRqstsC chan struct{}
 }
 
 // NewBulkProcessor returns a BulkProcessor which will support bulk user operations with a
 // maximum number of concurrent requests limited by concurrencyLimit
 func NewBulkProcessor(concurrencyLimit int) *BulkProcesor {
 	bp := BulkProcesor{
-		RequestC: make(chan Request, concurrencyLimit),
-		close:    make(chan struct{}),
+		RequestC:    make(chan Request, concurrencyLimit),
+		close:       make(chan struct{}),
+		limitRqstsC: make(chan struct{}, concurrencyLimit),
 	}
 	go bp.loop()
 	return &bp
@@ -87,14 +94,15 @@ func (bp BulkProcesor) Stop() {
 }
 
 func (bp BulkProcesor) loop() {
-	// TODO: This doesn't quite implement a limited concurrency model. Need 'process()' to obtain/release a
-	// TODO: space for another request
 	for {
 		select {
 		case <-bp.close:
 			return
 		case rqst := <-bp.RequestC:
 			rqst.handler.logger.Debugf("BulkProcessor received request: %+v", rqst)
+			// Request for resources prior to launching 'process()' as a goroutine.
+			// This limits the number of running goroutines.
+			bp.limitRqstsC <- struct{}{}
 			go bp.process(rqst)
 		}
 	}
@@ -102,13 +110,17 @@ func (bp BulkProcesor) loop() {
 
 func (bp BulkProcesor) process(rqst Request) {
 	var r Response
+	// After called functions return, accept from the 'limitRqstC'
+	// to free up resources for another request.
 	switch rqst.method {
 	case http.MethodPost:
 		rqst.handler.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
 		r = rqst.handler.handlePostSingleUser(*rqst.user)
+		<-bp.limitRqstsC
 	case http.MethodPut:
 		rqst.handler.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
 		r = rqst.handler.handlePutSingleUser(*rqst.user)
+		<-bp.limitRqstsC
 	default:
 		rqst.handler.logger.Debugf("BulkProcessor received unsupported HTTP method request: %v+", rqst)
 		r = Response{
