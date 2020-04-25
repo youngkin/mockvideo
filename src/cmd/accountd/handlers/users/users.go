@@ -39,27 +39,22 @@ import (
 	"github.com/youngkin/mockvideo/src/internal/user"
 )
 
+const rqstStatus = "rqstStatus"
+
+// UserRqstDur is used to capture the length of HTTP requests
+var UserRqstDur = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	Namespace: "mockvideo",
+	Subsystem: "user",
+	Name:      "user_request_duration_seconds",
+	Help:      "user request duration distribution in seconds",
+	// Buckets:   prometheus.ExponentialBuckets(0.005, 1.1, 40),
+	Buckets: prometheus.LinearBuckets(0.001, .004, 50),
+}, []string{rqstStatus})
+
 type handler struct {
 	db         *sql.DB
 	logger     *log.Entry
 	maxBulkOps int
-}
-
-var (
-	userRqstDur = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Namespace: "mockvideo",
-		Subsystem: "user",
-		Name:      "request_duration_seconds",
-		Help:      "user request duration distribution in seconds",
-		// Buckets:   prometheus.ExponentialBuckets(0.005, 1.1, 40),
-		Buckets: prometheus.LinearBuckets(0.001, .004, 50),
-	}, []string{"code"})
-)
-
-func init() {
-	prometheus.MustRegister(userRqstDur)
-	// Add Go module build info.
-	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 }
 
 // TODO:
@@ -91,7 +86,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	completeRequest := func(httpStatus int, msg string) {
 		w.WriteHeader(httpStatus)
 		w.Write([]byte(msg))
-		userRqstDur.WithLabelValues(strconv.Itoa(httpStatus)).
+		UserRqstDur.WithLabelValues(strconv.Itoa(httpStatus)).
 			Observe(float64(time.Since(start)) / float64(time.Second))
 	}
 
@@ -177,7 +172,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(marshPayload)
 
-	userRqstDur.WithLabelValues(strconv.Itoa(http.StatusFound)).Observe(float64(time.Since(start)) / float64(time.Second))
+	UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusFound)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
 func (h handler) handleGetUsers(path string) (interface{}, error) {
@@ -236,7 +231,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(msg))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 	}
 
 	// Expecting URL.Path '/users'
@@ -250,7 +245,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(constants.MalformedURL))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
@@ -264,7 +259,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(constants.MalformedURL))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
@@ -279,7 +274,7 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Location", resourceID)
 	w.WriteHeader(resp.HTTPStatus)
 	w.Write([]byte(resp.ErrMsg))
-	userRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+	UserRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
 func (h handler) handlePostSingleUser(u api.User) Response {
@@ -346,7 +341,7 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(msg))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 	}
 
 	pathNodes, err := h.getURLPathNodes(r.URL.Path)
@@ -359,7 +354,7 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(constants.MalformedURL))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
@@ -374,7 +369,7 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(errMsg))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
@@ -387,7 +382,7 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	resp := h.handlePutSingleUser(*user)
 	w.WriteHeader(resp.HTTPStatus)
 	w.Write([]byte(resp.ErrMsg))
-	userRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+	UserRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
 func (h handler) handlePutSingleUser(usr api.User) Response {
@@ -464,7 +459,7 @@ func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter,
 			constants.ErrorDetail: err.Error(),
 		}).Error(constants.JSONMarshalingError)
 		w.WriteHeader(http.StatusInternalServerError)
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
@@ -474,7 +469,7 @@ func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter,
 
 	bp.Stop()
 	h.logger.Debugf("handleRqstMultipleUsers: reponse sent, bulkprocessor stopped for %s", method)
-	userRqstDur.WithLabelValues(strconv.Itoa(overallHTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+	UserRqstDur.WithLabelValues(strconv.Itoa(overallHTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 	return
 }
 
@@ -548,7 +543,7 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(constants.MalformedURL))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
@@ -561,7 +556,7 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		}).Error(constants.MalformedURL)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(constants.MalformedURL))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
@@ -576,7 +571,7 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(constants.MalformedURL))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 	errCode, err := user.DeleteUser(h.db, uid)
@@ -589,13 +584,13 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		}).Error(errCode)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(constants.DBDeleteError))
-		userRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
+		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 
-	userRqstDur.WithLabelValues(strconv.Itoa(http.StatusCreated)).Observe(float64(time.Since(start)) / float64(time.Second))
+	UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusCreated)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
 func (h handler) logRqstRcvd(r *http.Request) {

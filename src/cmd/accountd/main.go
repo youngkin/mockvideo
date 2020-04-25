@@ -18,12 +18,14 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/youngkin/mockvideo/src/cmd/accountd/handlers"
 	"github.com/youngkin/mockvideo/src/cmd/accountd/handlers/users"
 	"github.com/youngkin/mockvideo/src/internal/platform/config"
 	"github.com/youngkin/mockvideo/src/internal/platform/constants"
 	"github.com/youngkin/mockvideo/src/internal/platform/logging"
+	"github.com/youngkin/mockvideo/src/internal/user"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -48,6 +50,17 @@ pertaining to:
 //	11.	TODO: Use https
 //	4.	TODO: Config parms (configMap?), monitor for changes restarting if necessary
 //	5.	TODO: ONGOING: Prometheus, instrument database calls
+
+func init() {
+	// PROMETHEUS NOTE:
+	// As metrics get defined, e.g., such as 'users.UserRqstDur', they must be
+	// added here. 'prometheus.MustRegister()' can only be called once at
+	// program initialization. Metrics should be defined in the packages that
+	// use them.
+	prometheus.MustRegister(users.UserRqstDur, user.DBRqstDur)
+	// Add Go module build info.
+	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
+}
 
 func main() {
 	configFileName := flag.String("configFile",
