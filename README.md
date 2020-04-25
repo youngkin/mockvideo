@@ -315,13 +315,28 @@ The commands listed here are all run from `<path-to-project>/mockvideo/src/cmd/a
 To install the application:
 
 ``` 
-helm secrets install --namespace video --name accountd helm/accountd --values helm/accountd/secrets.values.yaml --debug
+helm secrets install --namespace video --name accountd helm/accountd --set image.tag=<desiredImageTag> --values helm/accountd/secrets.values.yaml --debug
 ```
+
+Here are the pertinent parts of the above command:
+
+1. `--namespace video` - directs which Kubernetes namespace is the target of the upgrade. 
+1. --name `accountd` is the name of the associated Helm deployment
+2. `helm/accountd` is the location of the Helm charts
+3. `--set image.tag=<desiredImageTag>` - The `--set` flag directs Helm to use the value specfied here instead of the matching element in the Helm values file. In this example the non-secrets values file  is located at `<path-to-project>/mockvideo/src/cmd/accountd/helm/values.yaml`. Using `--set` avoids having to update the values file to direct Helm to use the appropriate image. This is helpful since I'm using Jenkins to tag and push the Docker image on a successful build against `master`. If this approach wasn't used, the values file would have to be updated to reflect the new image tag, committed and pushed to master, causing Jenkins to once again build, tag, and push a new Docker image, and so on...
+4. `--values ...` - used to direct Helm Secrets to the location of the secrets file.
+5. `--debug` is a personal preference  of mine as it shows exactly what Helm is doing. This can be useful if something goes wrong.
 
 To upgrade the application (after the initial installation):
 
 ```
-helm secrets upgrade  --values helm/accountd/secrets.values.yaml accountd helm/accountd --debug
+helm secrets upgrade --namespace video --set image.tag=<desiredImageTag> --values helm/accountd/secrets.values.yaml accountd helm/accountd --debug
+```
+
+For example:
+
+```
+helm secrets upgrade --namespace video --set image.tag=0.1.22 --values helm/accountd/secrets.values.yaml accountd helm/accountd --debug
 ```
 
 ## Testing the application

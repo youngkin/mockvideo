@@ -10,19 +10,8 @@ import (
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
+	"github.com/youngkin/mockvideo/src/api"
 	"github.com/youngkin/mockvideo/src/internal/platform/constants"
-)
-
-// Role indicates what role a User can take regarding account actions (e.g., add a service)
-type Role int
-
-const (
-	// Primary user role can do anything on the account
-	Primary Role = iota
-	// Unrestricted user role can do anything except billing
-	Unrestricted
-	// Restricted can't do much of anything, nothing service related, nothing billing related, basically just email
-	Restricted
 )
 
 var (
@@ -33,32 +22,16 @@ var (
 	deleteUserStmt   = "DELETE FROM user WHERE id = ?"
 )
 
-// User represents the data about a user
-type User struct {
-	AccountID int    `json:"accountid"`
-	HREF      string `json:"href"`
-	ID        int    `json:"id"`
-	Name      string `json:"name"`
-	EMail     string `json:"email"`
-	Role      Role   `json:"role"`
-	Password  string `json:"password,omitempty"`
-}
-
-// Users is a collection (slice) of User
-type Users struct {
-	Users []*User `json:"users"`
-}
-
 // GetAllUsers will return all customers known to the application
-func GetAllUsers(db *sql.DB) (*Users, error) {
+func GetAllUsers(db *sql.DB) (*api.Users, error) {
 	results, err := db.Query(getAllUsersQuery)
 	if err != nil {
-		return &Users{}, errors.Annotate(err, "error querying DB")
+		return &api.Users{}, errors.Annotate(err, "error querying DB")
 	}
 
-	us := Users{}
+	us := api.Users{}
 	for results.Next() {
-		var u User
+		var u api.User
 
 		err = results.Scan(&u.AccountID,
 			&u.ID,
@@ -66,7 +39,7 @@ func GetAllUsers(db *sql.DB) (*Users, error) {
 			&u.EMail,
 			&u.Role)
 		if err != nil {
-			return &Users{}, errors.Annotate(err, "error scanning result set")
+			return &api.Users{}, errors.Annotate(err, "error scanning result set")
 		}
 
 		us.Users = append(us.Users, &u)
@@ -77,9 +50,9 @@ func GetAllUsers(db *sql.DB) (*Users, error) {
 
 // GetUser will return the user identified by 'id' or a nil user if there
 // wasn't a matching user.
-func GetUser(db *sql.DB, id int) (*User, error) {
+func GetUser(db *sql.DB, id int) (*api.User, error) {
 	row := db.QueryRow(getUserQuery, id)
-	user := &User{}
+	user := &api.User{}
 	err := row.Scan(&user.AccountID,
 		&user.ID,
 		&user.Name,
@@ -96,7 +69,7 @@ func GetUser(db *sql.DB, id int) (*User, error) {
 }
 
 // InsertUser takes the provided user data, inserts it into the db, and returns the newly created user ID.
-func InsertUser(db *sql.DB, u User) (int, constants.ErrCode, error) {
+func InsertUser(db *sql.DB, u api.User) (int, constants.ErrCode, error) {
 	err := validateUser(u)
 	if err != nil {
 		return 0, constants.UserValidationErrorCode, errors.Annotate(err, "User validation failure")
@@ -124,7 +97,7 @@ func InsertUser(db *sql.DB, u User) (int, constants.ErrCode, error) {
 }
 
 // UpdateUser takes the provided user data, inserts it into the db, and returns the newly created user ID
-func UpdateUser(db *sql.DB, u User) (constants.ErrCode, error) {
+func UpdateUser(db *sql.DB, u api.User) (constants.ErrCode, error) {
 	err := validateUser(u)
 	if err != nil {
 		return constants.DBUpSertErrorCode, errors.Annotate(err, "User validation failure")
@@ -137,7 +110,7 @@ func UpdateUser(db *sql.DB, u User) (constants.ErrCode, error) {
 		return constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error beginning transaction for user: %+v", u))
 	}
 	r := db.QueryRow(getUserQuery, u.ID)
-	userRow := User{}
+	userRow := api.User{}
 	err = r.Scan(&userRow.AccountID,
 		&userRow.ID,
 		&userRow.Name,
@@ -180,7 +153,7 @@ func IsAuthorizedUser(db *sql.DB, id int, encryptedPassword []byte) (bool, error
 	return false, errors.NewNotImplemented(nil, "Not implemented")
 }
 
-func validateUser(u User) error {
+func validateUser(u api.User) error {
 	errMsg := ""
 
 	if u.AccountID == 0 {
@@ -195,9 +168,9 @@ func validateUser(u User) error {
 	if len(u.Password) == 0 {
 		errMsg = errMsg + "; Password must be populated"
 	}
-	if u.Role != Primary && u.Role != Restricted && u.Role != Unrestricted {
+	if u.Role != api.Primary && u.Role != api.Restricted && u.Role != api.Unrestricted {
 		errMsg = errMsg + fmt.Sprintf("; Invalid Role. Role must be one of %d, %d, or %d, got %d",
-			Primary, Restricted, Unrestricted, u.Role)
+			api.Primary, api.Restricted, api.Unrestricted, u.Role)
 	}
 
 	if len(errMsg) > 0 {
