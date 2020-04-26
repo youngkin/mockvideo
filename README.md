@@ -209,7 +209,9 @@ This section covers how to run the application as a standalone executable, a Doc
 
 A Go development environment must be installed. See the [Go installation page](https://golang.org/doc/install) for details.
 
-A MySQL database is required. It can either be run in a Docker container or from the command line as a standalone service (e.g., installed via Homebrew and started with `brew services start mysql`). Perhaps the easiest way to run MySQL is in a Docker container. This is easily accomplished by running:
+A MySQL database, or a feature equivalent such as MariaDB, is required. From here on, the term MySQL will mean either MySQL or its feature equivalent.
+
+MySQL can either be run in a Docker container or from the command line as a standalone service (e.g., installed via Homebrew and started with `brew services start mysql`). Perhaps the easiest way to run MySQL is in a Docker container. This is easily accomplished by running:
 
 ```
 docker run -d --name mysql -p 6603:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:latest
@@ -219,14 +221,14 @@ Things to note about this:
 
 1. `--name mysql` creates a named Docker container. This prevents more than one MySQL instance from running at any given time. If you want to run any tests over with a new copy of the database (e.g., `smoketest.sh`) you'll need to remove the container. To remove both the container and the image at the same time run `docker rm -f mysql`.
 2. `-p 6603:3306` creates an external port mapping, 6603, to the internal MySQL port of 3306. 
-3. `-e MYSQL_ALLOW_)_EMPTY_PASSWORD=yes` starts the instance without a `root` password. This is needed by the  `smoketest.sh` script
+3. `-e MYSQL_ALLOW_EMPTY_PASSWORD=yes` starts the instance without a `root` password. This is needed by the  `smoketest.sh` script
 4. `mysql:latest` will retrieve the mysql image with the tag `latest` which is likely to be the most recent version of the MySQL image.
 
- The username and password are assumed to be admin/admin. These, and other configuration variables, can be changed as described in the sections below on Helm Secrets and running the application locally (`Running the application/ Local execution`).
+ The username and password are assumed to be `admin/admin`. These, and other configuration variables, can be changed as described in the sections below on Helm Secrets and `Running the application/ Local execution`. The database can be set up by running `<path-to-project>/mockvideo/infrastructure/sql/createTables.sh` (or `createTablesDocker.sh` if MySQL is running in Docker). You will need to change the host IP address in these files for MySQL to an appropriate IP address (i.e, the `-h10.0.0.100`). `createTestData.sh` or `createTestDataDocker.sh` can be used to populate the the tables with some test data. The IP address specified in these files will likely also have to be changed. As an alternative, setting up the database and populating the tables is done automatically by the `smoketest` scripts described below.
 
 The `accountd` executable will need to be built as well. For local execution:  
 ```
-cd <projectroot>/src/cmd/accountd
+cd <projectroot>/mockvideo/src/cmd/accountd
 go build
 ```
 
@@ -237,7 +239,7 @@ env GOOS=linux GOARCH=arm GOARM=7 go build
 
 This will build an executable that will run in Minikube, Docker Desktop (Mac), and on a Raspberry Pi. You may need to tweak this command, and possibly the Dockerfile, to get an image appropriate for your deployment environment.
 
-To build a Docker image, after building the docker executable above, from the same directory as above, run 
+To build a Docker image, after building the docker executable above, from the same directory as above run:
 
 ```
 docker build -t local/accountd .
@@ -247,7 +249,7 @@ docker build -t local/accountd .
 
 [Helm](https://helm.sh/) and [Helm Secrets](https://github.com/zendesk/helm-secrets) are required to install to Kubernetes. [Helm secrets – a missing piece in Kubernetes](https://lab.getbase.com/helm-secrets-a-missing-piece-in-kubernetes/) is a good starting point for learning how to use Helm Secrets.
 
-Regarding secrets, if you want to override or even view the MySQL user and password you'll likely need to recreate the `<path-to-project>/src/cmd/accountd/helm/accountd/secrets.values.yaml` file. It's encrypted with my OpenPGP password and is (hopefully!) inaccessible. Prior to encryption with Helm Secrets the file looks like this:
+Regarding secrets, if you want to override or even view the MySQL user and password you'll likely need to recreate the `<path-to-project>/mockvideo/src/cmd/accountd/helm/accountd/secrets.values.yaml` file. It's encrypted with my OpenPGP password and is (hopefully!) inaccessible. Prior to encryption with Helm Secrets the file looks like this:
 
 ``` YAML
 secrets:
@@ -255,11 +257,9 @@ secrets:
     dbpassword: admin
 ```
 
-For Kubernetes, a namespace called `video` will need to be created - `kubectl create ns video`. 
-
 ## Pre-commit check and smoke tests.
 
-This check is handy when making changes to ensure there is no obvious breakage from the changes.
+This check is handy when making changes to ensure there is no obvious breakage from any changes.
 
 From the project root directory (`mockvideo`) run:
 
@@ -284,6 +284,8 @@ Run the script as follows:
 ```
 
 ## Running the application
+
+Please ensure that all prerequisites have been met as described above.
 
 ### Local execution
 
@@ -310,9 +312,33 @@ See `Prerequisites` above for instructions on how to build the docker container.
 
 ### Run in Kubernetes
 
-The commands listed here are all run from `<path-to-project>/mockvideo/src/cmd/accountd`.
+This requires a Kubernetes environment. Ensure that your context is correctly set. The application also requires an Ingress controller configured as described in [How to Install Kubernetes Ingress on a Raspberry Pi Cluster](https://medium.com/better-programming/install-kubernetes-ingress-on-a-raspberry-pi-cluster-e8d5086c5009). See that article for details. While a Raspberry Pi Kubernetes environment isn't required, the Ingress Controller is.
 
-To install the application:
+The first thing to do is to create the namespace to deploy the application into. From `<path-to-project>/mockvideo/infrastructure/kubernetes` enter:
+
+```
+kubectl create -f namespace.json
+```
+
+The next step is to set up the service and endpoint needed for the application to access MySQL. To start, `cd` to `<path-to-project>/mockvideo/infrastructure/helm`. Before setting up the service and endpoint verify that the configuration is appropriate for your deployment. Check the values specified in the `mockvideo/values.yaml` file, in particular the `ip:` entry at the bottom of the file. It is likely set to `10.0.0.100`. Change this to the IP address of the host where MySQL is running. Then, again from `<path-to-project>/mockvideo/infrastructure/helm` enter:
+
+```
+helm install --namespace video --name mysql mockvideo --debug
+```
+
+Here are the pertinent parts of the above command:
+
+1. `--namespace video` directs which Kubernetes namespace is the target of the upgrade. 
+2. `--name mysql` is the name of the associated Helm release, `mysql` in this case
+3. `mockvideo` is the location of the Helm charts
+4. `--debug` is a personal preference  of mine as it shows exactly what Helm is doing. This can be useful if something goes wrong.
+
+
+The next set of commands are all run from `<path-to-project>/mockvideo/src/cmd/accountd`. We're now ready to install the application. Before starting we once again need to verify the configuration matches the deployment environment. The file `helm/values.yaml` should be consulted to ensure the values provided will be acceptable. They should all be fine. If you don't know what you're doing, don't change them. That said, you should look at the `image:`, `respository:` value. The current value, `ryoungkin/accountd`, points to my Docker Hub repository. You'll need to change this if you want to use your own docker image.
+
+As discussed in the `Prerequisites` section above, you may need to modify the secrets file. This will only be needed if your MySQL database does not have the user `admin`, with the password `admin` defined. See the section on Secrets above for more details if you need to modify this.
+
+To install the application run:
 
 ``` 
 helm secrets install --namespace video --name accountd helm/accountd --set image.tag=<desiredImageTag> --values helm/accountd/secrets.values.yaml --debug
@@ -320,12 +346,12 @@ helm secrets install --namespace video --name accountd helm/accountd --set image
 
 Here are the pertinent parts of the above command:
 
-1. `--namespace video` - directs which Kubernetes namespace is the target of the upgrade. 
-1. --name `accountd` is the name of the associated Helm deployment
-2. `helm/accountd` is the location of the Helm charts
-3. `--set image.tag=<desiredImageTag>` - The `--set` flag directs Helm to use the value specfied here instead of the matching element in the Helm values file. In this example the non-secrets values file  is located at `<path-to-project>/mockvideo/src/cmd/accountd/helm/values.yaml`. Using `--set` avoids having to update the values file to direct Helm to use the appropriate image. This is helpful since I'm using Jenkins to tag and push the Docker image on a successful build against `master`. If this approach wasn't used, the values file would have to be updated to reflect the new image tag, committed and pushed to master, causing Jenkins to once again build, tag, and push a new Docker image, and so on...
-4. `--values ...` - used to direct Helm Secrets to the location of the secrets file.
-5. `--debug` is a personal preference  of mine as it shows exactly what Helm is doing. This can be useful if something goes wrong.
+1. `--namespace video` directs which Kubernetes namespace is the target of the upgrade. 
+2. --name `accountd` is the name of the associated Helm release
+3. `helm/accountd` is the location of the Helm charts
+4. `--set image.tag=<desiredImageTag>` - The `--set` flag directs Helm to use the value specfied here instead of the matching element in the Helm values file. In this example the values file is located at `<path-to-project>/mockvideo/src/cmd/accountd/helm/values.yaml`. Using `--set` avoids having to update the values file to direct Helm to use the appropriate image. This is helpful since I'm using Jenkins to tag and push the Docker image on a successful build against `master`. If this approach wasn't used, the values file would have to be updated to reflect the new image tag, committed and pushed to master, causing Jenkins to once again build, tag, and push a new Docker image, and so on... 
+5. `--values ...` is used to direct Helm Secrets to the location of the secrets file
+6. `--debug` as above, this is a personal preference  of mine
 
 To upgrade the application (after the initial installation):
 
