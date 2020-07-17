@@ -8,16 +8,16 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/youngkin/mockvideo/src/api"
-	"github.com/youngkin/mockvideo/src/internal/platform/constants"
+	"github.com/youngkin/mockvideo/src/domain"
+	"github.com/youngkin/mockvideo/src/internal/constants"
 )
 
 // Response contains the results of in individual User request
 type Response struct {
-	HTTPStatus int               `json:"httpstatus"`
-	ErrMsg     string            `json:"errmsg"`
-	ErrReason  constants.ErrCode `json:"-"`
-	User       api.User          `json:"user,omitempty"`
+	HTTPStatus int            `json:"httpstatus"`
+	ErrMsg     string         `json:"errmsg"`
+	ErrReason  domain.ErrCode `json:"-"`
+	User       domain.User    `json:"user,omitempty"`
 }
 
 // BulkResponse contains the results of in bulk  User request
@@ -31,7 +31,7 @@ type BulkResponse struct {
 type Request struct {
 	handler   handler
 	ResponseC chan Response
-	user      *api.User
+	user      *domain.User
 	method    string
 }
 
@@ -44,7 +44,7 @@ type BulkRequest struct {
 // NewBulkRequest returns a Request. This is the only way to create a valid Request. The
 // returned request contains a channel to listen on for concurrent request completion,
 // and the individual user instances that are the target of the operation.
-func NewBulkRequest(users api.Users, method string, handler handler) BulkRequest {
+func NewBulkRequest(users domain.Users, method string, handler handler) BulkRequest {
 	// responseC must be a buffered channel of at least 1. This is required to handle a
 	// potential race condition that occurs when the client 'Stop()'s a BulkPost while
 	// one or more requests are being actively processed but not yet handled by the client.

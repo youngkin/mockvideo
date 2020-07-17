@@ -26,7 +26,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/src/api"
+	"github.com/youngkin/mockvideo/src/domain"
 	logging "github.com/youngkin/mockvideo/src/internal/platform/logging"
 	"github.com/youngkin/mockvideo/src/internal/user/tests"
 )
@@ -55,8 +55,8 @@ func TestPOSTUser(t *testing.T) {
 		expectedHTTPStatus int
 		expectedResourceID string
 		postData           string
-		user               api.User
-		setupFunc          func(*testing.T, api.User) (*sql.DB, sqlmock.Sqlmock)
+		user               domain.User
+		setupFunc          func(*testing.T, domain.User) (*sql.DB, sqlmock.Sqlmock)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
@@ -74,7 +74,7 @@ func TestPOSTUser(t *testing.T) {
 					"password":"myawesomepassword"
 				}
 				`,
-			user: api.User{
+			user: domain.User{
 				AccountID: 1,
 				Name:      "mickey dolenz",
 				EMail:     "mickeyd@gmail.com",
@@ -100,7 +100,7 @@ func TestPOSTUser(t *testing.T) {
 					"password":"myawesomepassword"
 				}
 				`,
-			user: api.User{
+			user: domain.User{
 				AccountID: 1,
 				Name:      "mickey dolenz",
 				EMail:     "mickeyd@gmail.com",
@@ -127,7 +127,7 @@ func TestPOSTUser(t *testing.T) {
 					"password":"myawesomepassword"
 				}
 				`,
-			user: api.User{
+			user: domain.User{
 				AccountID: 1,
 				Name:      "mickey dolenz",
 				EMail:     "mickeyd@gmail.com",
@@ -186,8 +186,8 @@ func TestPUTUser(t *testing.T) {
 		updateResourceID   string
 		expectedResourceID string
 		postData           string
-		user               api.User
-		setupFunc          func(*testing.T, api.User) (*sql.DB, sqlmock.Sqlmock)
+		user               domain.User
+		setupFunc          func(*testing.T, domain.User) (*sql.DB, sqlmock.Sqlmock)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
@@ -207,7 +207,7 @@ func TestPUTUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: api.User{
+			user: domain.User{
 				ID:        2,
 				AccountID: 1,
 				Name:      "mickey dolenz",
@@ -237,7 +237,7 @@ func TestPUTUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: api.User{
+			user: domain.User{
 				ID:        100,
 				AccountID: 1,
 				Name:      "Mickey Mouse",
@@ -265,7 +265,7 @@ func TestPUTUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: api.User{
+			user: domain.User{
 				ID:        100,
 				AccountID: 1,
 				Name:      "Mickey Mouse",
@@ -293,7 +293,7 @@ func TestPUTUser(t *testing.T) {
 			"password":"myawesomepassword"
 		}
 		`,
-			user: api.User{
+			user: domain.User{
 				ID:        100,
 				AccountID: 1,
 				Name:      "Mickey Mouse",
@@ -357,8 +357,8 @@ func TestDELETEUser(t *testing.T) {
 		updateResourceID   string
 		expectedResourceID string
 		postData           string
-		user               api.User
-		setupFunc          func(*testing.T, api.User) (*sql.DB, sqlmock.Sqlmock)
+		user               domain.User
+		setupFunc          func(*testing.T, domain.User) (*sql.DB, sqlmock.Sqlmock)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
@@ -378,7 +378,7 @@ func TestDELETEUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: api.User{
+			user: domain.User{
 				ID:        2,
 				AccountID: 1,
 				Name:      "mickey dolenz",
@@ -406,7 +406,7 @@ func TestDELETEUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: api.User{
+			user: domain.User{
 				ID:        2,
 				AccountID: 1,
 				Name:      "mickey dolenz",
@@ -462,7 +462,7 @@ func TestGetAllUsers(t *testing.T) {
 		testName           string
 		url                string
 		shouldPass         bool
-		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, api.Users)
+		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, domain.Users)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 		expectedHTTPStatus int
 	}{
@@ -559,7 +559,7 @@ func TestGetUser(t *testing.T) {
 		testName           string
 		url                string
 		shouldPass         bool
-		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *api.User)
+		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *domain.User)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 		expectedHTTPStatus int
 	}{

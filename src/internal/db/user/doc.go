@@ -3,6 +3,6 @@
 // license that can be found in the LICENSE file.
 
 /*
-Package user provides common functions to retrieve and manipulate user related data.
+Package user provides common functions to retrieve and manipulate user related data from a mySQL DB.
 */
 package user

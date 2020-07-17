@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/youngkin/mockvideo/src/api"
+	"github.com/youngkin/mockvideo/src/domain"
 	"github.com/youngkin/mockvideo/src/internal/user"
 )
 
@@ -23,7 +23,7 @@ func TestGetAllUsers(t *testing.T) {
 	tests := []struct {
 		testName     string
 		shouldPass   bool
-		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, api.Users)
+		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, domain.Users)
 		teardownFunc func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
@@ -87,7 +87,7 @@ func TestGetUser(t *testing.T) {
 		testName     string
 		userID       int
 		shouldPass   bool
-		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *api.User)
+		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *domain.User)
 		teardownFunc func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
@@ -137,15 +137,15 @@ func TestGetUser(t *testing.T) {
 func TestInsertUser(t *testing.T) {
 	tests := []struct {
 		testName       string
-		user           api.User
+		user           domain.User
 		expectedUserID int
 		shouldPass     bool
-		setupFunc      func(*testing.T, api.User) (*sql.DB, sqlmock.Sqlmock)
+		setupFunc      func(*testing.T, domain.User) (*sql.DB, sqlmock.Sqlmock)
 		teardownFunc   func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
 			testName: "testInsertUserSuccess",
-			user: api.User{
+			user: domain.User{
 				AccountID: 1,
 				Name:      "mama cass",
 				EMail:     "mama@gmail.com",
@@ -159,7 +159,7 @@ func TestInsertUser(t *testing.T) {
 		},
 		{
 			testName: "testInsertUsererror",
-			user: api.User{
+			user: domain.User{
 				AccountID: 1,
 				Name:      "mama cass",
 				EMail:     "mama@gmail.com",
@@ -178,7 +178,7 @@ func TestInsertUser(t *testing.T) {
 			db, mock := tc.setupFunc(t, tc.user)
 			defer db.Close()
 
-			uID, _, err := user.InsertUser(db, tc.user)
+			uID, _, err := user.CreateUser(db, tc.user)
 
 			validateExpectedErrors(t, err, tc.shouldPass)
 

@@ -22,10 +22,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/youngkin/mockvideo/src/cmd/accountd/handlers"
 	"github.com/youngkin/mockvideo/src/cmd/accountd/handlers/users"
-	"github.com/youngkin/mockvideo/src/internal/platform/config"
-	"github.com/youngkin/mockvideo/src/internal/platform/constants"
-	"github.com/youngkin/mockvideo/src/internal/platform/logging"
-	"github.com/youngkin/mockvideo/src/internal/user"
+	"github.com/youngkin/mockvideo/src/cmd/accountd/internal/config"
+	"github.com/youngkin/mockvideo/src/cmd/accountd/usecases"
+	"github.com/youngkin/mockvideo/src/internal/constants"
+	"github.com/youngkin/mockvideo/src/internal/db/user"
+	"github.com/youngkin/mockvideo/src/internal/logging"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -140,6 +141,9 @@ func main() {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToOpenDBConnErrorCode,
 			constants.ErrorDetail: err.Error(),
+			constants.DBHost:      configs["dbHost"],
+			constants.DBPort:      configs["dbPort"],
+			constants.DBName:      configs["dbName"],
 		}).Fatal(constants.UnableToOpenDBConn)
 		os.Exit(1)
 	}
@@ -153,7 +157,7 @@ func main() {
 			constants.DBHost:      configs["dbHost"],
 			constants.DBPort:      configs["dbPort"],
 			constants.DBName:      configs["dbName"],
-		}).Fatal(constants.UnableToOpenDBConn + ": database unreachable")
+		}).Fatal(constants.UnableToOpenDBConn)
 		os.Exit(1)
 	}
 
@@ -170,9 +174,29 @@ func main() {
 	}
 
 	//
+	// Setup Repositories and UseCases
+	//
+	userTable, err := user.NewTable(db)
+	if err != nil {
+		logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.UnableToCreateRepositoryErrorCode,
+			constants.ErrorDetail: "unable to create a user.Table instance",
+		}).Fatal(constants.UnableToCreateRepository)
+		os.Exit(1)
+	}
+	userUseCase, err := usecases.NewUserUseCase(userTable)
+	if err != nil {
+		logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.UnableToCreateUseCaseErrorCode,
+			constants.ErrorDetail: "unable to create a usecases.UserUseCase instance",
+		}).Fatal(constants.UnableToCreateUseCase)
+		os.Exit(1)
+	}
+
+	//
 	// Setup endpoints and start service
 	//
-	usersHandler, err := users.NewUserHandler(db, logger, maxBulkOps)
+	usersHandler, err := users.NewUserHandler(userUseCase, logger, maxBulkOps)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,

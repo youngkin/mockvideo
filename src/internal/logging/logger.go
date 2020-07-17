@@ -8,7 +8,7 @@ import (
 	"os"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/src/internal/platform/constants"
+	"github.com/youngkin/mockvideo/src/internal/constants"
 )
 
 var logger *log.Entry
