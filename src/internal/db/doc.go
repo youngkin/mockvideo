@@ -5,4 +5,4 @@
 /*
 Package user provides common functions to retrieve and manipulate user related data from a mySQL DB.
 */
-package user
+package db

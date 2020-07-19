@@ -31,15 +31,16 @@ const (
 // TODO: Consider embedding 'ErrCode' inside an application specific error type. This would
 // TODO: likely require rethinking how errors are wrapped currently using 'errors.Annotate'
 type UserRepository interface {
-	GetUsers() (Users, error)
+	GetUsers() (*Users, error)
 	GetUser(id int) (*User, error)
 	CreateUser(user User) (id int, errCode ErrCode, err error)
-	UpdateUser(id int) (ErrCode, error)
+	UpdateUser(user User) (ErrCode, error)
 	DeleteUser(id int) (ErrCode, error)
 }
 
 // User represents the data about a user
 type User struct {
+	// TODO: Should a User have an accountID? It certainly does in the DB (secondary index).
 	AccountID int    `json:"accountid"`
 	HREF      string `json:"href"`
 	ID        int    `json:"id"`
@@ -56,6 +57,7 @@ type Users struct {
 
 // IsAuthenticatedUser will return true if the encryptedPassword matches the
 // User's real (i.e., unencrypted) password.
+// TODO: Move to usecases package/layer
 func (u *User) IsAuthenticatedUser(db *sql.DB, id int, encryptedPassword []byte) (bool, error) {
 	// TODO: implement
 	return false, errors.NewNotImplemented(nil, "Not implemented")

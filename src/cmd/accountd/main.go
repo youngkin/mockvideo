@@ -25,7 +25,8 @@ import (
 	"github.com/youngkin/mockvideo/src/cmd/accountd/internal/config"
 	"github.com/youngkin/mockvideo/src/cmd/accountd/usecases"
 	"github.com/youngkin/mockvideo/src/internal/constants"
-	"github.com/youngkin/mockvideo/src/internal/db/user"
+	"github.com/youngkin/mockvideo/src/internal/db"
+	user "github.com/youngkin/mockvideo/src/internal/db"
 	"github.com/youngkin/mockvideo/src/internal/logging"
 
 	log "github.com/sirupsen/logrus"
@@ -58,7 +59,7 @@ func init() {
 	// added here. 'prometheus.MustRegister()' can only be called once at
 	// program initialization. Metrics should be defined in the packages that
 	// use them.
-	prometheus.MustRegister(users.UserRqstDur, user.DBRqstDur)
+	prometheus.MustRegister(users.UserRqstDur, db.DBRqstDur)
 	// Add Go module build info.
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 }
@@ -196,7 +197,7 @@ func main() {
 	//
 	// Setup endpoints and start service
 	//
-	usersHandler, err := users.NewUserHandler(userUseCase, logger, maxBulkOps)
+	usersHandler, err := users.NewUserHandler(userUseCase, userTable, logger, maxBulkOps)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,

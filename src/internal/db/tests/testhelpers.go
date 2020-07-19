@@ -14,7 +14,7 @@ import (
 )
 
 // DBCallSetupHelper encapsulates common code needed to setup mock DB access to user data
-func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, domain.Users) {
+func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *domain.Users) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
@@ -46,7 +46,7 @@ func DBCallSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, domain.Users) {
 		},
 	}
 
-	return db, mock, expected
+	return db, mock, &expected
 }
 
 // DBDeleteSetupHelper encapsulates the common code needed to setup a mock User delete
@@ -174,7 +174,7 @@ func DBUpdateErrorSetupHelper(t *testing.T, u domain.User) (*sql.DB, sqlmock.Sql
 }
 
 // DBCallQueryErrorSetupHelper encapsulates common coded needed to mock DB query failures
-func DBCallQueryErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, domain.Users) {
+func DBCallQueryErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *domain.Users) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
@@ -183,11 +183,11 @@ func DBCallQueryErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, domain
 	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user").
 		WillReturnError(fmt.Errorf("some error"))
 
-	return db, mock, domain.Users{}
+	return db, mock, nil
 }
 
 // DBCallRowScanErrorSetupHelper encapsulates common coded needed to mock DB query failures
-func DBCallRowScanErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, domain.Users) {
+func DBCallRowScanErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *domain.Users) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
@@ -199,7 +199,7 @@ func DBCallRowScanErrorSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, doma
 	mock.ExpectQuery("SELECT accountID, id, name, email, role FROM user").
 		WillReturnRows(rows)
 
-	return db, mock, domain.Users{}
+	return db, mock, nil
 }
 
 // DBCallTeardownHelper encapsulates common code needed to finalize processing of mock DB access to user data

@@ -26,9 +26,11 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	log "github.com/sirupsen/logrus"
+	"github.com/youngkin/mockvideo/src/cmd/accountd/usecases"
 	"github.com/youngkin/mockvideo/src/domain"
-	logging "github.com/youngkin/mockvideo/src/internal/platform/logging"
-	"github.com/youngkin/mockvideo/src/internal/user/tests"
+	"github.com/youngkin/mockvideo/src/internal/db"
+	"github.com/youngkin/mockvideo/src/internal/db/tests"
+	logging "github.com/youngkin/mockvideo/src/internal/logging"
 )
 
 // logger is used to control code-under-test logging behavior
@@ -141,9 +143,19 @@ func TestPOSTUser(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock := tc.setupFunc(t, tc.user)
+			dbase, mock := tc.setupFunc(t, tc.user)
+			ut, err := db.NewTable(dbase)
+			if err != nil {
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
 
-			srvHandler, err := NewUserHandler(db, logger, 10)
+			userUseCase, err := usecases.NewUserUseCase(ut)
+			if err != nil {
+				t.Fatalf("error creating userUseCase: %s", err)
+			}
+
+			srvHandler, err := NewUserHandler(userUseCase, ut, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
 			}
@@ -308,9 +320,16 @@ func TestPUTUser(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock := tc.setupFunc(t, tc.user)
+			dbase, mock := tc.setupFunc(t, tc.user)
+			ut, err := db.NewTable(dbase)
+			if err != nil {
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
 
-			srvHandler, err := NewUserHandler(db, logger, 10)
+			userUseCase, err := usecases.NewUserUseCase(ut)
+
+			srvHandler, err := NewUserHandler(userUseCase, ut, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
 			}
@@ -421,9 +440,16 @@ func TestDELETEUser(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock := tc.setupFunc(t, tc.user)
+			dbase, mock := tc.setupFunc(t, tc.user)
+			ut, err := db.NewTable(dbase)
+			if err != nil {
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
 
-			srvHandler, err := NewUserHandler(db, logger, 10)
+			userUseCase, err := usecases.NewUserUseCase(ut)
+
+			srvHandler, err := NewUserHandler(userUseCase, ut, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
 			}
@@ -462,7 +488,7 @@ func TestGetAllUsers(t *testing.T) {
 		testName           string
 		url                string
 		shouldPass         bool
-		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, domain.Users)
+		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *domain.Users)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 		expectedHTTPStatus int
 	}{
@@ -502,15 +528,16 @@ func TestGetAllUsers(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock, expected := tc.setupFunc(t)
-			defer db.Close()
-
-			// populate User.HREF from User.ID
-			for _, user := range expected.Users {
-				user.HREF = "/users/" + strconv.Itoa(user.ID)
+			dbase, mock, expected := tc.setupFunc(t)
+			ut, err := db.NewTable(dbase)
+			if err != nil {
+				t.Fatalf("error creating user table instance: %s", err)
 			}
+			defer dbase.Close()
 
-			userHandler, err := NewUserHandler(db, logger, 10)
+			userUseCase, err := usecases.NewUserUseCase(ut)
+
+			userHandler, err := NewUserHandler(userUseCase, ut, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
@@ -531,6 +558,11 @@ func TestGetAllUsers(t *testing.T) {
 			}
 
 			if tc.shouldPass {
+				// populate User.HREF from User.ID
+				for _, user := range expected.Users {
+					user.HREF = "/users/" + strconv.Itoa(user.ID)
+				}
+
 				actual, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
 					t.Fatalf("an error '%s' was not expected reading response body", err)
@@ -599,15 +631,21 @@ func TestGetUser(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock, expected := tc.setupFunc(t)
-			defer db.Close()
+			dbase, mock, expected := tc.setupFunc(t)
+			ut, err := db.NewTable(dbase)
+			if err != nil {
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
+
+			userUseCase, err := usecases.NewUserUseCase(ut)
 
 			// populate User.HREF from User.ID
 			if expected != nil {
 				expected.HREF = tc.url
 			}
 
-			userHandler, err := NewUserHandler(db, logger, 10)
+			userHandler, err := NewUserHandler(userUseCase, ut, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
 			}

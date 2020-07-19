@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package user
+package db
 
 import (
 	"database/sql"
@@ -66,13 +66,13 @@ func NewTable(db *sql.DB) (*Table, error) {
 }
 
 // GetAllUsers will return all customers known to the application
-func (ut *Table) GetAllUsers() (domain.Users, error) {
+func (ut *Table) GetUsers() (*domain.Users, error) {
 	start := time.Now()
 
 	results, err := ut.db.Query(getAllUsersQuery)
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, readAll, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return domain.Users{}, errors.Annotate(err, "error querying DB")
+		return nil, errors.Annotate(err, "error querying DB")
 	}
 
 	us := domain.Users{}
@@ -86,7 +86,7 @@ func (ut *Table) GetAllUsers() (domain.Users, error) {
 			&u.Role)
 		if err != nil {
 			DBRqstDur.WithLabelValues(userTbl, readAll, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-			return domain.Users{}, errors.Annotate(err, "error scanning result set")
+			return nil, errors.Annotate(err, "error scanning result set")
 		}
 
 		us.Users = append(us.Users, &u)
@@ -94,7 +94,7 @@ func (ut *Table) GetAllUsers() (domain.Users, error) {
 
 	DBRqstDur.WithLabelValues(userTbl, readAll, ok).Observe(float64(time.Since(start)) / float64(time.Second))
 
-	return us, nil
+	return &us, nil
 }
 
 // GetUser will return the user identified by 'id' or a nil user if there

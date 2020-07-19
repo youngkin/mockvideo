@@ -36,7 +36,6 @@ import (
 	"github.com/youngkin/mockvideo/src/cmd/accountd/usecases"
 	"github.com/youngkin/mockvideo/src/domain"
 	"github.com/youngkin/mockvideo/src/internal/constants"
-	"github.com/youngkin/mockvideo/src/internal/db/user"
 )
 
 const rqstStatus = "rqstStatus"
@@ -53,6 +52,7 @@ var UserRqstDur = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 
 type handler struct {
 	uc         usecases.UserUC
+	ur         domain.UserRepository
 	logger     *log.Entry
 	maxBulkOps int
 }
@@ -139,7 +139,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 			userFound = false
 		}
 	case *domain.Users:
-		if len(p.Users) == 0 {
+		if p == nil || len(p.Users) == 0 {
 			userFound = false
 		}
 	default:
@@ -176,7 +176,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h handler) handleGetUsers(path string) (interface{}, error) {
-	usrs, err := user.GetAllUsers()
+	usrs, err := h.ur.GetUsers()
 	if err != nil {
 		return nil, errors.Annotate(err, "Error retrieving users from DB")
 	}
@@ -206,7 +206,7 @@ func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interfa
 		return nil, constants.MalformedURLErrorCode, err
 	}
 
-	c, err := user.GetUser(h.db, id)
+	c, err := h.ur.GetUser(id)
 	if err != nil {
 		return nil, constants.UserRqstErrorCode, err
 	}
@@ -295,7 +295,7 @@ func (h handler) handlePostSingleUser(u domain.User) Response {
 		}
 	}
 
-	userID, errReason, err := user.CreateUser(h.db, u)
+	userID, errReason, err := h.ur.CreateUser(u)
 	if err != nil {
 		errMsg := constants.DBUpSertError
 		status := http.StatusInternalServerError
@@ -386,7 +386,7 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h handler) handlePutSingleUser(usr domain.User) Response {
-	errCode, err := user.UpdateUser(h.db, usr)
+	errCode, err := h.ur.UpdateUser(usr)
 	if err != nil {
 		errMsg := constants.DBUpSertError
 		httpStatus := http.StatusInternalServerError
@@ -574,7 +574,7 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
-	errCode, err := user.DeleteUser(h.db, uid)
+	errCode, err := h.ur.DeleteUser(uid)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
@@ -660,15 +660,12 @@ func (h handler) parseRqst(r *http.Request) (domain.User, []string, error) {
 }
 
 // NewUserHandler returns a properly configured *http.Handler
-func NewUserHandler(uc usecases.UserUC, logger *log.Entry, maxBulkOps int) (http.Handler, error) {
-	if uc == nil {
-		return nil, errors.New("non-nil usecases.UserUC required")
-	}
+func NewUserHandler(uc usecases.UserUC, ur domain.UserRepository, logger *log.Entry, maxBulkOps int) (http.Handler, error) {
 	if logger == nil {
 		return nil, errors.New("non-nil log.Entry  required")
 	}
 	if maxBulkOps == 0 {
 		return nil, errors.New("maxBulkOps must be greater than zero")
 	}
-	return handler{uc: uc, maxBulkOps: maxBulkOps, logger: logger}, nil
+	return handler{uc: uc, ur: ur, maxBulkOps: maxBulkOps, logger: logger}, nil
 }
