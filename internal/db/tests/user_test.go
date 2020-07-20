@@ -15,8 +15,8 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/youngkin/mockvideo/src/domain"
-	"github.com/youngkin/mockvideo/src/internal/db"
+	"github.com/youngkin/mockvideo/internal/db"
+	"github.com/youngkin/mockvideo/internal/domain"
 )
 
 func TestGetAllUsers(t *testing.T) {

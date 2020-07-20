@@ -5,13 +5,11 @@
 package domain
 
 import (
-	"database/sql"
 	"fmt"
-
-	"github.com/juju/errors"
 )
 
 // ErrCode is the application type for reporting error codes
+// TODO: Why isn't this in internal/constants/errors.go?
 type ErrCode int
 
 // Role indicates what role a User can take regarding account actions (e.g., add a service)
@@ -58,9 +56,9 @@ type Users struct {
 // IsAuthenticatedUser will return true if the encryptedPassword matches the
 // User's real (i.e., unencrypted) password.
 // TODO: Move to usecases package/layer
-func (u *User) IsAuthenticatedUser(db *sql.DB, id int, encryptedPassword []byte) (bool, error) {
+func (u *User) IsAuthenticatedUser(id int, encryptedPassword []byte) (bool, error) {
 	// TODO: implement
-	return false, errors.NewNotImplemented(nil, "Not implemented")
+	return false, fmt.Errorf("not implemented") /*errors.NewNotImplemented(nil, "Not implemented")*/
 }
 
 // ValidateUser will return an error if the User is not constructed correctly.
@@ -85,7 +83,7 @@ func (u *User) ValidateUser() error {
 	}
 
 	if len(errMsg) > 0 {
-		return errors.New(errMsg)
+		return fmt.Errorf("error validating user: %s", errMsg)
 	}
 	return nil
 }

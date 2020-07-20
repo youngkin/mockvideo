@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/youngkin/mockvideo/src/domain"
-	"github.com/youngkin/mockvideo/src/internal/constants"
+	"github.com/youngkin/mockvideo/internal/constants"
+	"github.com/youngkin/mockvideo/internal/domain"
 )
 
 // Response contains the results of in individual User request

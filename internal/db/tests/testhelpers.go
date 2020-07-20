@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/youngkin/mockvideo/src/domain"
+	"github.com/youngkin/mockvideo/internal/domain"
 )
 
 // DBCallSetupHelper encapsulates common code needed to setup mock DB access to user data

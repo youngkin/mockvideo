@@ -26,11 +26,11 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/src/cmd/accountd/usecases"
-	"github.com/youngkin/mockvideo/src/domain"
-	"github.com/youngkin/mockvideo/src/internal/db"
-	"github.com/youngkin/mockvideo/src/internal/db/tests"
-	logging "github.com/youngkin/mockvideo/src/internal/logging"
+	"github.com/youngkin/mockvideo/cmd/accountd/usecases"
+	"github.com/youngkin/mockvideo/internal/db"
+	"github.com/youngkin/mockvideo/internal/db/tests"
+	"github.com/youngkin/mockvideo/internal/domain"
+	logging "github.com/youngkin/mockvideo/internal/logging"
 )
 
 // logger is used to control code-under-test logging behavior

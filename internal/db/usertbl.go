@@ -12,8 +12,8 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/youngkin/mockvideo/src/domain"
-	"github.com/youngkin/mockvideo/src/internal/constants"
+	"github.com/youngkin/mockvideo/internal/constants"
+	"github.com/youngkin/mockvideo/internal/domain"
 )
 
 // DBRqstDur is used to capture the length and status of database requests
@@ -65,7 +65,7 @@ func NewTable(db *sql.DB) (*Table, error) {
 	return &Table{db: db}, nil
 }
 
-// GetAllUsers will return all customers known to the application
+// GetUsers will return all customers known to the application
 func (ut *Table) GetUsers() (*domain.Users, error) {
 	start := time.Now()
 

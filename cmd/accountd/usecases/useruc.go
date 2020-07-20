@@ -7,7 +7,7 @@ package usecases
 import (
 	"errors"
 
-	"github.com/youngkin/mockvideo/src/domain"
+	"github.com/youngkin/mockvideo/internal/domain"
 )
 
 // UserUC defines the operations to be supported by any types that provide

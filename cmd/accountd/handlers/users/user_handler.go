@@ -33,9 +33,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/src/cmd/accountd/usecases"
-	"github.com/youngkin/mockvideo/src/domain"
-	"github.com/youngkin/mockvideo/src/internal/constants"
+	"github.com/youngkin/mockvideo/cmd/accountd/usecases"
+	"github.com/youngkin/mockvideo/internal/constants"
+	"github.com/youngkin/mockvideo/internal/domain"
 )
 
 const rqstStatus = "rqstStatus"
@@ -420,6 +420,8 @@ func (h handler) handlePutSingleUser(usr domain.User) Response {
 func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter, path string, users domain.Users, method string) {
 	h.logger.Debugf("handleRqstMultipleUsers for %s", method)
 	bp := NewBulkProcessor(h.maxBulkOps)
+	defer bp.Stop()
+
 	br := NewBulkRequest(users, method, h)
 	rqstCompleteC := make(chan Response)
 	numUsers := len(users.Users)
@@ -467,7 +469,6 @@ func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter,
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(marshResp)
 
-	bp.Stop()
 	h.logger.Debugf("handleRqstMultipleUsers: reponse sent, bulkprocessor stopped for %s", method)
 	UserRqstDur.WithLabelValues(strconv.Itoa(overallHTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 	return

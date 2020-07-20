@@ -8,7 +8,7 @@
 
 package constants
 
-import "github.com/youngkin/mockvideo/src/domain"
+import "github.com/youngkin/mockvideo/internal/domain"
 
 // MySQLDupInsertErrorCode is an alias for the MySQL error code for duplicate row insert attempt
 const MySQLDupInsertErrorCode = 1062
