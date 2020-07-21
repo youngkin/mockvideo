@@ -7,20 +7,20 @@ pre() {
 }
 
 build() {
-    cd src/cmd/accountd
+    cd cmd/accountd
     go build
     cd -
 }
 
 buildARM() {
-    cd src/cmd/accountd
+    cd cmd/accountd
     /usr/bin/env GOOS=linux GOARCH=arm GOARM=7 go build
     cd -
 }
 
 dockerBuild() {
     buildARM
-    cd src/cmd/accountd
+    cd cmd/accountd
     docker build -t local/accountd .
     cd -
 }

@@ -46,6 +46,7 @@ const (
 var (
 	getAllUsersQuery = "SELECT accountID, id, name, email, role FROM user"
 	getUserQuery     = "SELECT accountID, id, name, email, role FROM user WHERE id = ?"
+	// TODO: Implement these and remove the current insertUserStmt
 	// getUserPasswordQuery = "SELECT password WHERE id = ?"
 	insertUserStmt = "INSERT INTO user (accountID, name, email, role, password) VALUES (?, ?, ?, ?, ?)"
 	updateUserStmt = "UPDATE user SET id = ?, accountID = ?, name = ?, email = ?, role = ?, password = ? WHERE id = ?"
@@ -123,7 +124,7 @@ func (ut *Table) GetUser(id int) (*domain.User, error) {
 }
 
 // CreateUser takes the provided user data, inserts it into the db, and returns the newly created user ID.
-func (ut *Table) CreateUser(u domain.User) (int, domain.ErrCode, error) {
+func (ut *Table) CreateUser(u domain.User) (int, constants.ErrCode, error) {
 	start := time.Now()
 
 	err := u.ValidateUser()
@@ -158,7 +159,7 @@ func (ut *Table) CreateUser(u domain.User) (int, domain.ErrCode, error) {
 }
 
 // UpdateUser takes the provided user data, inserts it into the db, and returns the newly created user ID
-func (ut *Table) UpdateUser(u domain.User) (domain.ErrCode, error) {
+func (ut *Table) UpdateUser(u domain.User) (constants.ErrCode, error) {
 	start := time.Now()
 
 	err := u.ValidateUser()
@@ -206,7 +207,7 @@ func (ut *Table) UpdateUser(u domain.User) (domain.ErrCode, error) {
 }
 
 // DeleteUser deletes the user identified by u.id from the database
-func (ut *Table) DeleteUser(id int) (domain.ErrCode, error) {
+func (ut *Table) DeleteUser(id int) (constants.ErrCode, error) {
 	start := time.Now()
 
 	_, err := ut.db.Exec(deleteUserStmt, id)

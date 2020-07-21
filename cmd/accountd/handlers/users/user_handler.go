@@ -33,7 +33,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/cmd/accountd/usecases"
+	"github.com/youngkin/mockvideo/cmd/accountd/services"
 	"github.com/youngkin/mockvideo/internal/constants"
 	"github.com/youngkin/mockvideo/internal/domain"
 )
@@ -51,8 +51,7 @@ var UserRqstDur = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 }, []string{rqstStatus})
 
 type handler struct {
-	uc         usecases.UserUC
-	ur         domain.UserRepository
+	userSvc    services.UserSvcInterface
 	logger     *log.Entry
 	maxBulkOps int
 }
@@ -105,7 +104,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	var (
 		payload   interface{}
-		errReason domain.ErrCode
+		errReason constants.ErrCode
 	)
 
 	if len(pathNodes) == 1 {
@@ -176,7 +175,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h handler) handleGetUsers(path string) (interface{}, error) {
-	usrs, err := h.ur.GetUsers()
+	usrs, err := h.userSvc.GetUsers()
 	if err != nil {
 		return nil, errors.Annotate(err, "Error retrieving users from DB")
 	}
@@ -194,7 +193,7 @@ func (h handler) handleGetUsers(path string) (interface{}, error) {
 // an error reason and error if there was a problem retrieving the user, or a nil user and a nil
 // error if the user was not found. The error reason will only be relevant when the error
 // is non-nil.
-func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interface{}, errReason domain.ErrCode, err error) {
+func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interface{}, errReason constants.ErrCode, err error) {
 	if len(pathNodes) > 1 {
 		err := errors.Errorf(("expected 1 pathNode, got %d"), len(pathNodes))
 		return nil, constants.MalformedURLErrorCode, err
@@ -206,10 +205,11 @@ func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interfa
 		return nil, constants.MalformedURLErrorCode, err
 	}
 
-	c, err := h.ur.GetUser(id)
+	c, err := h.userSvc.GetUser(id)
 	if err != nil {
 		return nil, constants.UserRqstErrorCode, err
 	}
+
 	if c == nil {
 		// client will deal with a nil (e.g., not found) user
 		return nil, 0, nil
@@ -225,13 +225,14 @@ func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interfa
 func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	users := &domain.Users{}
-	user := &domain.User{}
-	isBulkRqst, msg, err := h.decodeRequest(r, user, users)
+	users := domain.Users{}
+	user := domain.User{}
+	isBulkRqst, msg, err := h.decodeRequest(r, &user, &users)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(msg))
 		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		return
 	}
 
 	// Expecting URL.Path '/users'
@@ -264,12 +265,12 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isBulkRqst {
-		h.handleRqstMultipleUsers(start, w, r.URL.Path, *users, http.MethodPost)
+		h.handleRqstMultipleUsers(start, w, r.URL.Path, users, http.MethodPost)
 		return
 	}
 
 	// Logging is handled by 'handlePostSingleUser()'
-	resp := h.handlePostSingleUser(*user)
+	resp := h.handlePostSingleUser(user)
 	resourceID := fmt.Sprintf("/users/%d", resp.User.ID)
 	w.Header().Add("Location", resourceID)
 	w.WriteHeader(resp.HTTPStatus)
@@ -277,25 +278,25 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	UserRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) handlePostSingleUser(u domain.User) Response {
-	h.logger.Debugf("handlePostSingleUser: user %+v", u)
-	if u.ID != 0 { // User ID must *NOT* be populated (i.e., with a non-zero value) on an insert
-		errMsg := fmt.Sprintf("expected User.ID > 0, got User.ID = %d", u.ID)
+func (h handler) handlePostSingleUser(user domain.User) Response {
+	h.logger.Debugf("handlePostSingleUser: user %+v", user)
+	if user.ID != 0 { // User ID must *NOT* be populated (i.e., with a non-zero value) on an insert
+		errMsg := fmt.Sprintf("expected User.ID > 0, got User.ID = %d", user.ID)
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.InvalidInsertErrorCode,
 			constants.HTTPStatus:  http.StatusBadRequest,
-			constants.Path:        fmt.Sprintf("/users/%d", u.ID),
+			constants.Path:        fmt.Sprintf("/users/%d", user.ID),
 			constants.ErrorDetail: errMsg,
 		}).Error(constants.InvalidInsertError)
 		return Response{
 			HTTPStatus: http.StatusBadRequest,
 			ErrMsg:     errMsg,
 			ErrReason:  constants.UserRqstErrorCode,
-			User:       u,
+			User:       user,
 		}
 	}
 
-	userID, errReason, err := h.ur.CreateUser(u)
+	userID, errReason, err := h.userSvc.CreateUser(user)
 	if err != nil {
 		errMsg := constants.DBUpSertError
 		status := http.StatusInternalServerError
@@ -309,25 +310,25 @@ func (h handler) handlePostSingleUser(u domain.User) Response {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
 			constants.HTTPStatus:  status,
-			constants.Path:        fmt.Sprintf("/users/%d", u.ID),
+			constants.Path:        fmt.Sprintf("/users/%d", user.ID),
 			constants.ErrorDetail: err,
 		}).Error(errMsg)
 		return Response{
 			HTTPStatus: http.StatusBadRequest,
 			ErrMsg:     errMsg,
 			ErrReason:  errCode,
-			User:       u,
+			User:       user,
 		}
 	}
 
-	u.ID = userID
-	u.HREF = fmt.Sprintf("/users/%d", userID)
+	user.ID = userID
+	user.HREF = fmt.Sprintf("/users/%d", userID)
 
 	return Response{
 		HTTPStatus: http.StatusCreated,
 		ErrMsg:     "",
 		ErrReason:  constants.NoErrorCode,
-		User:       u,
+		User:       user,
 	}
 
 }
@@ -385,8 +386,8 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	UserRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) handlePutSingleUser(usr domain.User) Response {
-	errCode, err := h.ur.UpdateUser(usr)
+func (h handler) handlePutSingleUser(user domain.User) Response {
+	errCode, err := h.userSvc.UpdateUser(user)
 	if err != nil {
 		errMsg := constants.DBUpSertError
 		httpStatus := http.StatusInternalServerError
@@ -397,14 +398,14 @@ func (h handler) handlePutSingleUser(usr domain.User) Response {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
 			constants.HTTPStatus:  httpStatus,
-			constants.Path:        fmt.Sprintf("/users/%d", usr.ID),
+			constants.Path:        fmt.Sprintf("/users/%d", user.ID),
 			constants.ErrorDetail: err,
 		}).Error(errMsg)
 		resp := Response{
 			HTTPStatus: httpStatus,
 			ErrMsg:     errMsg,
 			ErrReason:  errCode,
-			User:       usr,
+			User:       user,
 		}
 		return resp
 	}
@@ -413,7 +414,7 @@ func (h handler) handlePutSingleUser(usr domain.User) Response {
 		HTTPStatus: http.StatusOK,
 		ErrMsg:     "",
 		ErrReason:  constants.NoErrorCode,
-		User:       usr,
+		User:       user,
 	}
 }
 
@@ -422,7 +423,7 @@ func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter,
 	bp := NewBulkProcessor(h.maxBulkOps)
 	defer bp.Stop()
 
-	br := NewBulkRequest(users, method, h)
+	br := NewBulkRequest(users, method, h.userSvc)
 	rqstCompleteC := make(chan Response)
 	numUsers := len(users.Users)
 
@@ -507,9 +508,9 @@ func (h handler) decodeRequest(r *http.Request, user *domain.User, users *domain
 	}
 
 	if isBulkRqst {
-		err = d.Decode(&users)
+		err = d.Decode(users)
 	} else {
-		err = d.Decode(&user)
+		err = d.Decode(user)
 	}
 	if err != nil {
 		h.logger.WithFields(log.Fields{
@@ -575,7 +576,7 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
-	errCode, err := h.ur.DeleteUser(uid)
+	errCode, err := h.userSvc.DeleteUser(uid)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
@@ -661,12 +662,12 @@ func (h handler) parseRqst(r *http.Request) (domain.User, []string, error) {
 }
 
 // NewUserHandler returns a properly configured *http.Handler
-func NewUserHandler(uc usecases.UserUC, ur domain.UserRepository, logger *log.Entry, maxBulkOps int) (http.Handler, error) {
+func NewUserHandler(userSvc services.UserSvcInterface, logger *log.Entry, maxBulkOps int) (http.Handler, error) {
 	if logger == nil {
 		return nil, errors.New("non-nil log.Entry  required")
 	}
 	if maxBulkOps == 0 {
 		return nil, errors.New("maxBulkOps must be greater than zero")
 	}
-	return handler{uc: uc, ur: ur, maxBulkOps: maxBulkOps, logger: logger}, nil
+	return handler{userSvc: userSvc, maxBulkOps: maxBulkOps, logger: logger}, nil
 }

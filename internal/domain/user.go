@@ -6,11 +6,9 @@ package domain
 
 import (
 	"fmt"
-)
 
-// ErrCode is the application type for reporting error codes
-// TODO: Why isn't this in internal/constants/errors.go?
-type ErrCode int
+	"github.com/youngkin/mockvideo/internal/constants"
+)
 
 // Role indicates what role a User can take regarding account actions (e.g., add a service)
 type Role int
@@ -31,9 +29,9 @@ const (
 type UserRepository interface {
 	GetUsers() (*Users, error)
 	GetUser(id int) (*User, error)
-	CreateUser(user User) (id int, errCode ErrCode, err error)
-	UpdateUser(user User) (ErrCode, error)
-	DeleteUser(id int) (ErrCode, error)
+	CreateUser(user User) (id int, errCode constants.ErrCode, err error)
+	UpdateUser(user User) (constants.ErrCode, error)
+	DeleteUser(id int) (constants.ErrCode, error)
 }
 
 // User represents the data about a user

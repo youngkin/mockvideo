@@ -23,7 +23,7 @@ import (
 	"github.com/youngkin/mockvideo/cmd/accountd/handlers"
 	"github.com/youngkin/mockvideo/cmd/accountd/handlers/users"
 	"github.com/youngkin/mockvideo/cmd/accountd/internal/config"
-	"github.com/youngkin/mockvideo/cmd/accountd/usecases"
+	"github.com/youngkin/mockvideo/cmd/accountd/services"
 	"github.com/youngkin/mockvideo/internal/constants"
 	"github.com/youngkin/mockvideo/internal/db"
 	user "github.com/youngkin/mockvideo/internal/db"
@@ -166,7 +166,6 @@ func main() {
 	maxBulkOpsStr, ok := configs["maxConcurrentBulkOperations"]
 	if !ok {
 		logger.Info("max bulk operations configuration unavailable (configs[maxConcurrentBulkOperations]), defaulting to 10")
-		maxBulkOpsStr = "10"
 	} else {
 		maxBulkOps, err = strconv.Atoi(maxBulkOpsStr)
 		if err != nil {
@@ -185,11 +184,11 @@ func main() {
 		}).Fatal(constants.UnableToCreateRepository)
 		os.Exit(1)
 	}
-	userUseCase, err := usecases.NewUserUseCase(userTable)
+	userSvc, err := services.NewUserSvc(userTable, logger)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateUseCaseErrorCode,
-			constants.ErrorDetail: "unable to create a usecases.UserUseCase instance",
+			constants.ErrorDetail: "unable to create a services.UserUseCase instance",
 		}).Fatal(constants.UnableToCreateUseCase)
 		os.Exit(1)
 	}
@@ -197,7 +196,7 @@ func main() {
 	//
 	// Setup endpoints and start service
 	//
-	usersHandler, err := users.NewUserHandler(userUseCase, userTable, logger, maxBulkOps)
+	usersHandler, err := users.NewUserHandler(userSvc, logger, maxBulkOps)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,

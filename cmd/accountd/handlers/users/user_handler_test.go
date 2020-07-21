@@ -26,7 +26,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/cmd/accountd/usecases"
+	"github.com/youngkin/mockvideo/cmd/accountd/services"
 	"github.com/youngkin/mockvideo/internal/db"
 	"github.com/youngkin/mockvideo/internal/db/tests"
 	"github.com/youngkin/mockvideo/internal/domain"
@@ -69,8 +69,8 @@ func TestPOSTUser(t *testing.T) {
 			expectedResourceID: "/users/1",
 			postData: `
 				{
-					"AccountID":1,
-					"Name":"mickey dolenz",
+					"accountid":1,
+					"name":"mickey dolenz",
 					"eMail":"mickeyd@gmail.com",
 					"role":1,
 					"password":"myawesomepassword"
@@ -150,14 +150,14 @@ func TestPOSTUser(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			userUseCase, err := usecases.NewUserUseCase(ut)
-			if err != nil {
-				t.Fatalf("error creating userUseCase: %s", err)
+			userSvc := services.UserSvc{
+				Repo:   ut,
+				Logger: logger,
 			}
 
-			srvHandler, err := NewUserHandler(userUseCase, ut, logger, 10)
+			srvHandler, err := NewUserHandler(&userSvc, logger, 10)
 			if err != nil {
-				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
+				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
 
 			testSrv := httptest.NewServer(http.HandlerFunc(srvHandler.ServeHTTP))
@@ -327,11 +327,14 @@ func TestPUTUser(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			userUseCase, err := usecases.NewUserUseCase(ut)
+			userSvc := services.UserSvc{
+				Repo:   ut,
+				Logger: logger,
+			}
 
-			srvHandler, err := NewUserHandler(userUseCase, ut, logger, 10)
+			srvHandler, err := NewUserHandler(&userSvc, logger, 10)
 			if err != nil {
-				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
+				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
 
 			testSrv := httptest.NewServer(http.HandlerFunc(srvHandler.ServeHTTP))
@@ -447,11 +450,14 @@ func TestDELETEUser(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			userUseCase, err := usecases.NewUserUseCase(ut)
+			userSvc := services.UserSvc{
+				Repo:   ut,
+				Logger: logger,
+			}
 
-			srvHandler, err := NewUserHandler(userUseCase, ut, logger, 10)
+			srvHandler, err := NewUserHandler(&userSvc, logger, 10)
 			if err != nil {
-				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
+				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
 
 			testSrv := httptest.NewServer(http.HandlerFunc(srvHandler.ServeHTTP))
@@ -535,9 +541,12 @@ func TestGetAllUsers(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			userUseCase, err := usecases.NewUserUseCase(ut)
+			userSvc := services.UserSvc{
+				Repo:   ut,
+				Logger: logger,
+			}
 
-			userHandler, err := NewUserHandler(userUseCase, ut, logger, 10)
+			userHandler, err := NewUserHandler(&userSvc, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
@@ -638,16 +647,19 @@ func TestGetUser(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			userUseCase, err := usecases.NewUserUseCase(ut)
+			userSvc := services.UserSvc{
+				Repo:   ut,
+				Logger: logger,
+			}
 
 			// populate User.HREF from User.ID
 			if expected != nil {
 				expected.HREF = tc.url
 			}
 
-			userHandler, err := NewUserHandler(userUseCase, ut, logger, 10)
+			userHandler, err := NewUserHandler(&userSvc, logger, 10)
 			if err != nil {
-				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
+				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
 
 			testSrv := httptest.NewServer(http.HandlerFunc(userHandler.ServeHTTP))

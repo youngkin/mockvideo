@@ -81,6 +81,7 @@ func DBInsertSetupHelper(t *testing.T, u domain.User) (*sql.DB, sqlmock.Sqlmock)
 		t.Fatalf("an error '%s' was not expected when opening a mock database connection", err)
 	}
 
+	// TODO: Swap these statements
 	mock.ExpectExec("INSERT INTO user").WithArgs(u.AccountID, u.Name, u.EMail, u.Role, u.Password).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 

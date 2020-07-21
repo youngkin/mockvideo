@@ -8,7 +8,8 @@
 
 package constants
 
-import "github.com/youngkin/mockvideo/internal/domain"
+// ErrCode is the application type for reporting error codes
+type ErrCode int
 
 // MySQLDupInsertErrorCode is an alias for the MySQL error code for duplicate row insert attempt
 const MySQLDupInsertErrorCode = 1062
@@ -89,7 +90,7 @@ const (
 	//
 
 	// DBDeleteErrorCode indication of a DB error during a DELETE operation
-	DBDeleteErrorCode domain.ErrCode = iota
+	DBDeleteErrorCode ErrCode = iota
 	// DBInsertDuplicateUserErrorCode indicates an attempt to insert a duplicate row
 	DBInsertDuplicateUserErrorCode
 	// DBInvalidRequestCode indication of an invalid request, e.g., an update was attempted on an existing user
@@ -148,7 +149,7 @@ const (
 	//
 
 	// UserRqstErrorCode is the error code associated with UserRqstErrorCode
-	UserRqstErrorCode domain.ErrCode = iota + 1000
+	UserRqstErrorCode ErrCode = iota + 1000
 	// UserTypeConversionErrorCode is the error code associated with UserTypeConversion
 	UserTypeConversionErrorCode
 	// UserValidationErrorCode indicates a problem with the User data

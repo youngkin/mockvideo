@@ -8,16 +8,17 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/youngkin/mockvideo/cmd/accountd/services"
 	"github.com/youngkin/mockvideo/internal/constants"
 	"github.com/youngkin/mockvideo/internal/domain"
 )
 
 // Response contains the results of in individual User request
 type Response struct {
-	HTTPStatus int            `json:"httpstatus"`
-	ErrMsg     string         `json:"errmsg"`
-	ErrReason  domain.ErrCode `json:"-"`
-	User       domain.User    `json:"user,omitempty"`
+	HTTPStatus int               `json:"httpstatus"`
+	ErrMsg     string            `json:"errmsg"`
+	ErrReason  constants.ErrCode `json:"-"`
+	User       domain.User       `json:"user,omitempty"`
 }
 
 // BulkResponse contains the results of in bulk  User request
@@ -29,9 +30,10 @@ type BulkResponse struct {
 // Request contains the information needed to process a request as well
 // as capture to result of processing that request.
 type Request struct {
+	userSvc   services.UserSvcInterface
 	handler   handler
 	ResponseC chan Response
-	user      *domain.User
+	user      domain.User
 	method    string
 }
 
@@ -44,7 +46,7 @@ type BulkRequest struct {
 // NewBulkRequest returns a Request. This is the only way to create a valid Request. The
 // returned request contains a channel to listen on for concurrent request completion,
 // and the individual user instances that are the target of the operation.
-func NewBulkRequest(users domain.Users, method string, handler handler) BulkRequest {
+func NewBulkRequest(users domain.Users, method string, userSvc services.UserSvcInterface) BulkRequest {
 	// responseC must be a buffered channel of at least 1. This is required to handle a
 	// potential race condition that occurs when the client 'Stop()'s a BulkPost while
 	// one or more requests are being actively processed but not yet handled by the client.
@@ -53,9 +55,9 @@ func NewBulkRequest(users domain.Users, method string, handler handler) BulkRequ
 
 	for _, u := range users.Users {
 		rqst := Request{
-			handler:   handler,
+			userSvc:   userSvc,
 			ResponseC: responseC,
-			user:      u,
+			user:      *u,
 			method:    method,
 		}
 		requests = append(requests, rqst)
@@ -99,7 +101,7 @@ func (bp BulkProcesor) loop() {
 		case <-bp.close:
 			return
 		case rqst := <-bp.RequestC:
-			rqst.handler.logger.Debugf("BulkProcessor received request: %+v", rqst)
+			// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor received request: %+v", rqst)
 			// Request for resources prior to launching 'process()' as a goroutine.
 			// This limits the number of running goroutines.
 			bp.limitRqstsC <- struct{}{}
@@ -109,27 +111,56 @@ func (bp BulkProcesor) loop() {
 }
 
 func (bp BulkProcesor) process(rqst Request) {
-	var r Response
 	// After called functions return, accept from the 'limitRqstC'
 	// to free up resources for another request.
+	releaseResource := func() {
+		<-bp.limitRqstsC
+	}
+	defer releaseResource()
+
+	r := Response{
+		ErrMsg:    "",
+		ErrReason: constants.NoErrorCode,
+	}
 	switch rqst.method {
 	case http.MethodPost:
-		rqst.handler.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
-		r = rqst.handler.handlePostSingleUser(*rqst.user)
-		<-bp.limitRqstsC
+		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
+		_, errCode, err := rqst.userSvc.CreateUser(rqst.user)
+		if err != nil {
+			r = Response{
+				ErrMsg:     err.Error(),
+				ErrReason:  errCode,
+				HTTPStatus: http.StatusBadRequest,
+				User:       rqst.user,
+			}
+		} else {
+			r.HTTPStatus = http.StatusCreated
+			r.User = rqst.user
+		}
 	case http.MethodPut:
-		rqst.handler.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
-		r = rqst.handler.handlePutSingleUser(*rqst.user)
-		<-bp.limitRqstsC
+		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
+		errCode, err := rqst.userSvc.UpdateUser(rqst.user)
+		if err != nil {
+			r = Response{
+				ErrMsg:     err.Error(),
+				ErrReason:  errCode,
+				HTTPStatus: http.StatusBadRequest,
+				User:       rqst.user,
+			}
+		} else {
+			r.HTTPStatus = http.StatusOK
+			r.User = rqst.user
+		}
 	default:
-		rqst.handler.logger.Debugf("BulkProcessor received unsupported HTTP method request: %v+", rqst)
+		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor received unsupported HTTP method request: %v+", rqst)
 		r = Response{
 			ErrMsg:     fmt.Sprintf("Bulk %s HTTP method not supported", rqst.method),
 			ErrReason:  constants.UserRqstErrorCode,
 			HTTPStatus: http.StatusBadRequest,
-			User:       *rqst.user,
+			User:       rqst.user,
 		}
 	}
+
 	rqst.ResponseC <- r
-	rqst.handler.logger.Debugf("BulkProcessor.process sent response: %v+", r)
+	// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor.process sent response: %v+", r)
 }
