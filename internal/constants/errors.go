@@ -8,14 +8,16 @@
 
 package constants
 
+// ErrCode is the application type for reporting error codes
+type ErrCode int
+
 // MySQLDupInsertErrorCode is an alias for the MySQL error code for duplicate row insert attempt
 const MySQLDupInsertErrorCode = 1062
 
+//
+// Miscellaneous errors
+//
 const (
-	//
-	// Miscellaneous errors
-	//
-
 	// DBDeleteError is an indication of a DB error during a DELETE operation
 	DBDeleteError = "a DB error occurred during a DELETE operation"
 	// DBInsertDuplicateUserError indicates an attempt to insert a duplicate row
@@ -48,8 +50,13 @@ const (
 	// being evaluated.
 	RqstParsingError = "Request parsing error, possible malformed JSON"
 
-	// UnableToCreateHTTPHandler indications that there was a problem creating an http handler
+	// UnableToCreateHTTPHandler indicates that there was a problem creating an http handler
 	UnableToCreateHTTPHandler = "Unable to create HTTP handler"
+	// UnableToCreateRepository indicates that there was a problem creating Repository instance referencing
+	// storage for an application domain type
+	UnableToCreateRepository = "Unable to create domain object repository"
+	// UnableToCreateUseCase indicates that there was a problem creating an application use case
+	UnableToCreateUseCase = "Unable to create application use case"
 	// UnableToGetConfig indicates there was a problem obtaining the application configuration
 	UnableToGetConfig = "Unable to get information from configuration"
 	// UnableToGetDBConnStr indicates there was a problem constructing a DB connection string
@@ -62,11 +69,12 @@ const (
 	UnableToOpenConfig = "Unable to open configuration file"
 	// UnableToOpenDBConn indicates there was a problem opening a database connection
 	UnableToOpenDBConn = "Unable to open DB connection"
+)
 
-	//
-	// User related error codes start at 1000 and go to 1999
-	//
-
+//
+// User related error codes start at 1000 and go to 1999
+//
+const (
 	// UserRqstError indicates that GET(or PUT) /users or GET(or PUT) /users/{id} failed in some way
 	UserRqstError = "GET /users or GET /users/{id} failed"
 	// UserTypeConversionError indicates that the payload returned from GET /users/{id} could
@@ -75,9 +83,6 @@ const (
 	// UserValidationError indicates a problem with the User data
 	UserValidationError = "invalid user data"
 )
-
-// ErrCode is the application type for reporting error codes
-type ErrCode int
 
 const (
 	//
@@ -119,6 +124,11 @@ const (
 
 	// UnableToCreateHTTPHandlerErrorCode is the error code associated with UnableToCreateHTTPHandler
 	UnableToCreateHTTPHandlerErrorCode
+	// UnableToCreateRepositoryErrorCode indicates that there was a problem creating Repository instance referencing
+	// storage for an application domain type
+	UnableToCreateRepositoryErrorCode
+	// UnableToCreateUseCaseErrorCode is the error code associated with UnableToCreateUseCase
+	UnableToCreateUseCaseErrorCode
 	// UnableToGetConfigErrorCode is the error code associated with UnableToGetConfig
 	UnableToGetConfigErrorCode
 	// UnableToGetDBConnStrErrorCode is the error code associated with UnableToGetDBConnStr

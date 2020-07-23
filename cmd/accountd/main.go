@@ -20,12 +20,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/youngkin/mockvideo/src/cmd/accountd/handlers"
-	"github.com/youngkin/mockvideo/src/cmd/accountd/handlers/users"
-	"github.com/youngkin/mockvideo/src/internal/platform/config"
-	"github.com/youngkin/mockvideo/src/internal/platform/constants"
-	"github.com/youngkin/mockvideo/src/internal/platform/logging"
-	"github.com/youngkin/mockvideo/src/internal/user"
+	"github.com/youngkin/mockvideo/cmd/accountd/handlers"
+	"github.com/youngkin/mockvideo/cmd/accountd/handlers/users"
+	"github.com/youngkin/mockvideo/cmd/accountd/internal/config"
+	"github.com/youngkin/mockvideo/cmd/accountd/services"
+	"github.com/youngkin/mockvideo/internal/constants"
+	"github.com/youngkin/mockvideo/internal/db"
+	user "github.com/youngkin/mockvideo/internal/db"
+	"github.com/youngkin/mockvideo/internal/logging"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -57,7 +59,7 @@ func init() {
 	// added here. 'prometheus.MustRegister()' can only be called once at
 	// program initialization. Metrics should be defined in the packages that
 	// use them.
-	prometheus.MustRegister(users.UserRqstDur, user.DBRqstDur)
+	prometheus.MustRegister(users.UserRqstDur, db.DBRqstDur)
 	// Add Go module build info.
 	prometheus.MustRegister(prometheus.NewBuildInfoCollector())
 }
@@ -140,6 +142,9 @@ func main() {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToOpenDBConnErrorCode,
 			constants.ErrorDetail: err.Error(),
+			constants.DBHost:      configs["dbHost"],
+			constants.DBPort:      configs["dbPort"],
+			constants.DBName:      configs["dbName"],
 		}).Fatal(constants.UnableToOpenDBConn)
 		os.Exit(1)
 	}
@@ -153,7 +158,7 @@ func main() {
 			constants.DBHost:      configs["dbHost"],
 			constants.DBPort:      configs["dbPort"],
 			constants.DBName:      configs["dbName"],
-		}).Fatal(constants.UnableToOpenDBConn + ": database unreachable")
+		}).Fatal(constants.UnableToOpenDBConn)
 		os.Exit(1)
 	}
 
@@ -161,7 +166,6 @@ func main() {
 	maxBulkOpsStr, ok := configs["maxConcurrentBulkOperations"]
 	if !ok {
 		logger.Info("max bulk operations configuration unavailable (configs[maxConcurrentBulkOperations]), defaulting to 10")
-		maxBulkOpsStr = "10"
 	} else {
 		maxBulkOps, err = strconv.Atoi(maxBulkOpsStr)
 		if err != nil {
@@ -170,9 +174,29 @@ func main() {
 	}
 
 	//
+	// Setup Repositories and UseCases
+	//
+	userTable, err := user.NewTable(db)
+	if err != nil {
+		logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.UnableToCreateRepositoryErrorCode,
+			constants.ErrorDetail: "unable to create a user.Table instance",
+		}).Fatal(constants.UnableToCreateRepository)
+		os.Exit(1)
+	}
+	userSvc, err := services.NewUserSvc(userTable, logger)
+	if err != nil {
+		logger.WithFields(log.Fields{
+			constants.ErrorCode:   constants.UnableToCreateUseCaseErrorCode,
+			constants.ErrorDetail: "unable to create a services.UserUseCase instance",
+		}).Fatal(constants.UnableToCreateUseCase)
+		os.Exit(1)
+	}
+
+	//
 	// Setup endpoints and start service
 	//
-	usersHandler, err := users.NewUserHandler(db, logger, maxBulkOps)
+	usersHandler, err := users.NewUserHandler(userSvc, logger, maxBulkOps)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,

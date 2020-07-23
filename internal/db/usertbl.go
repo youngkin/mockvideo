@@ -2,7 +2,7 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package user
+package db
 
 import (
 	"database/sql"
@@ -12,8 +12,8 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/youngkin/mockvideo/src/api"
-	"github.com/youngkin/mockvideo/src/internal/platform/constants"
+	"github.com/youngkin/mockvideo/internal/constants"
+	"github.com/youngkin/mockvideo/internal/domain"
 )
 
 // DBRqstDur is used to capture the length and status of database requests
@@ -46,24 +46,39 @@ const (
 var (
 	getAllUsersQuery = "SELECT accountID, id, name, email, role FROM user"
 	getUserQuery     = "SELECT accountID, id, name, email, role FROM user WHERE id = ?"
-	insertUserStmt   = "INSERT INTO user (accountID, name, email, role, password) VALUES (?, ?, ?, ?, ?)"
-	updateUserStmt   = "UPDATE user SET id = ?, accountID = ?, name = ?, email = ?, role = ?, password = ? WHERE id = ?"
-	deleteUserStmt   = "DELETE FROM user WHERE id = ?"
+	// TODO: Implement these and remove the current insertUserStmt
+	// getUserPasswordQuery = "SELECT password WHERE id = ?"
+	insertUserStmt = "INSERT INTO user (accountID, name, email, role, password) VALUES (?, ?, ?, ?, ?)"
+	updateUserStmt = "UPDATE user SET id = ?, accountID = ?, name = ?, email = ?, role = ?, password = ? WHERE id = ?"
+	deleteUserStmt = "DELETE FROM user WHERE id = ?"
 )
 
-// GetAllUsers will return all customers known to the application
-func GetAllUsers(db *sql.DB) (*api.Users, error) {
+// Table supports CRUD access to the 'user' table
+type Table struct {
+	db *sql.DB
+}
+
+// NewTable creates a new UserTbl instance with the provided sql.DB instance
+func NewTable(db *sql.DB) (*Table, error) {
+	if db == nil {
+		return nil, errors.New("non-nil sql.DB connection required")
+	}
+	return &Table{db: db}, nil
+}
+
+// GetUsers will return all customers known to the application
+func (ut *Table) GetUsers() (*domain.Users, error) {
 	start := time.Now()
 
-	results, err := db.Query(getAllUsersQuery)
+	results, err := ut.db.Query(getAllUsersQuery)
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, readAll, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return &api.Users{}, errors.Annotate(err, "error querying DB")
+		return nil, errors.Annotate(err, "error querying DB")
 	}
 
-	us := api.Users{}
+	us := domain.Users{}
 	for results.Next() {
-		var u api.User
+		var u domain.User
 
 		err = results.Scan(&u.AccountID,
 			&u.ID,
@@ -72,23 +87,24 @@ func GetAllUsers(db *sql.DB) (*api.Users, error) {
 			&u.Role)
 		if err != nil {
 			DBRqstDur.WithLabelValues(userTbl, readAll, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-			return &api.Users{}, errors.Annotate(err, "error scanning result set")
+			return nil, errors.Annotate(err, "error scanning result set")
 		}
 
 		us.Users = append(us.Users, &u)
 	}
 
 	DBRqstDur.WithLabelValues(userTbl, readAll, ok).Observe(float64(time.Since(start)) / float64(time.Second))
+
 	return &us, nil
 }
 
 // GetUser will return the user identified by 'id' or a nil user if there
 // wasn't a matching user.
-func GetUser(db *sql.DB, id int) (*api.User, error) {
+func (ut *Table) GetUser(id int) (*domain.User, error) {
 	start := time.Now()
 
-	row := db.QueryRow(getUserQuery, id)
-	user := &api.User{}
+	row := ut.db.QueryRow(getUserQuery, id)
+	user := &domain.User{}
 	err := row.Scan(&user.AccountID,
 		&user.ID,
 		&user.Name,
@@ -107,17 +123,17 @@ func GetUser(db *sql.DB, id int) (*api.User, error) {
 	return user, nil
 }
 
-// InsertUser takes the provided user data, inserts it into the db, and returns the newly created user ID.
-func InsertUser(db *sql.DB, u api.User) (int, constants.ErrCode, error) {
+// CreateUser takes the provided user data, inserts it into the db, and returns the newly created user ID.
+func (ut *Table) CreateUser(u domain.User) (int, constants.ErrCode, error) {
 	start := time.Now()
 
-	err := validateUser(u)
+	err := u.ValidateUser()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, create, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
 		return 0, constants.UserValidationErrorCode, errors.Annotate(err, "User validation failure")
 	}
 
-	r, err := db.Exec(insertUserStmt, u.AccountID, u.Name, u.EMail, u.Role, u.Password)
+	r, err := ut.db.Exec(insertUserStmt, u.AccountID, u.Name, u.EMail, u.Role, u.Password)
 	if err != nil {
 		errDetail, ok := err.(*mysql.MySQLError)
 		if ok {
@@ -143,10 +159,10 @@ func InsertUser(db *sql.DB, u api.User) (int, constants.ErrCode, error) {
 }
 
 // UpdateUser takes the provided user data, inserts it into the db, and returns the newly created user ID
-func UpdateUser(db *sql.DB, u api.User) (constants.ErrCode, error) {
+func (ut *Table) UpdateUser(u domain.User) (constants.ErrCode, error) {
 	start := time.Now()
 
-	err := validateUser(u)
+	err := u.ValidateUser()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
 		return constants.DBUpSertErrorCode, errors.Annotate(err, "User validation failure")
@@ -154,13 +170,13 @@ func UpdateUser(db *sql.DB, u api.User) (constants.ErrCode, error) {
 
 	// This entire db.Begin/tx.Rollback/Commit seem awkward to me. But it's here because
 	// MySQL silently performs an insert if there is no row to update.
-	tx, err := db.Begin()
+	tx, err := ut.db.Begin()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
 		return constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error beginning transaction for user: %+v", u))
 	}
-	r := db.QueryRow(getUserQuery, u.ID)
-	userRow := api.User{}
+	r := ut.db.QueryRow(getUserQuery, u.ID)
+	userRow := domain.User{}
 	err = r.Scan(&userRow.AccountID,
 		&userRow.ID,
 		&userRow.Name,
@@ -178,7 +194,7 @@ func UpdateUser(db *sql.DB, u api.User) (constants.ErrCode, error) {
 		return constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error updating user in the database: %+v", u))
 	}
 
-	_, err = db.Exec(updateUserStmt, u.ID, u.AccountID, u.Name, u.EMail, u.Role, u.Password, u.ID)
+	_, err = ut.db.Exec(updateUserStmt, u.ID, u.AccountID, u.Name, u.EMail, u.Role, u.Password, u.ID)
 	if err != nil {
 		tx.Rollback()
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
@@ -191,10 +207,10 @@ func UpdateUser(db *sql.DB, u api.User) (constants.ErrCode, error) {
 }
 
 // DeleteUser deletes the user identified by u.id from the database
-func DeleteUser(db *sql.DB, id int) (constants.ErrCode, error) {
+func (ut *Table) DeleteUser(id int) (constants.ErrCode, error) {
 	start := time.Now()
 
-	_, err := db.Exec(deleteUserStmt, id)
+	_, err := ut.db.Exec(deleteUserStmt, id)
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, delete, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
 		return constants.DBDeleteErrorCode, errors.Annotate(err, "Usesr delete error")
@@ -202,37 +218,4 @@ func DeleteUser(db *sql.DB, id int) (constants.ErrCode, error) {
 
 	DBRqstDur.WithLabelValues(userTbl, delete, ok).Observe(float64(time.Since(start)) / float64(time.Second))
 	return constants.NoErrorCode, nil
-}
-
-// IsAuthorizedUser will return true if the encryptedPassword matches the
-// User's real (i.e., unencrypted) password.
-func IsAuthorizedUser(db *sql.DB, id int, encryptedPassword []byte) (bool, error) {
-	// TODO: implement
-	return false, errors.NewNotImplemented(nil, "Not implemented")
-}
-
-func validateUser(u api.User) error {
-	errMsg := ""
-
-	if u.AccountID == 0 {
-		errMsg = errMsg + "AccountID cannot be 0"
-	}
-	if len(u.EMail) == 0 {
-		errMsg = errMsg + "; Email address must be populated"
-	}
-	if len(u.Name) == 0 {
-		errMsg = errMsg + "; Name must be populated"
-	}
-	if len(u.Password) == 0 {
-		errMsg = errMsg + "; Password must be populated"
-	}
-	if u.Role != api.Primary && u.Role != api.Restricted && u.Role != api.Unrestricted {
-		errMsg = errMsg + fmt.Sprintf("; Invalid Role. Role must be one of %d, %d, or %d, got %d",
-			api.Primary, api.Restricted, api.Unrestricted, u.Role)
-	}
-
-	if len(errMsg) > 0 {
-		return errors.New(errMsg)
-	}
-	return nil
 }

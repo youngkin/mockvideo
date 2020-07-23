@@ -23,7 +23,6 @@ This file attempts to showcase several best practices including:
 */
 
 import (
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -34,9 +33,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/src/api"
-	"github.com/youngkin/mockvideo/src/internal/platform/constants"
-	"github.com/youngkin/mockvideo/src/internal/user"
+	"github.com/youngkin/mockvideo/cmd/accountd/services"
+	"github.com/youngkin/mockvideo/internal/constants"
+	"github.com/youngkin/mockvideo/internal/domain"
 )
 
 const rqstStatus = "rqstStatus"
@@ -52,7 +51,7 @@ var UserRqstDur = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 }, []string{rqstStatus})
 
 type handler struct {
-	db         *sql.DB
+	userSvc    services.UserSvcInterface
 	logger     *log.Entry
 	maxBulkOps int
 }
@@ -134,12 +133,12 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	switch p := payload.(type) {
 	case nil:
 		userFound = false
-	case *api.User:
+	case *domain.User:
 		if p == nil {
 			userFound = false
 		}
-	case *api.Users:
-		if len(p.Users) == 0 {
+	case *domain.Users:
+		if p == nil || len(p.Users) == 0 {
 			userFound = false
 		}
 	default:
@@ -176,7 +175,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h handler) handleGetUsers(path string) (interface{}, error) {
-	usrs, err := user.GetAllUsers(h.db)
+	usrs, err := h.userSvc.GetUsers()
 	if err != nil {
 		return nil, errors.Annotate(err, "Error retrieving users from DB")
 	}
@@ -206,10 +205,11 @@ func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interfa
 		return nil, constants.MalformedURLErrorCode, err
 	}
 
-	c, err := user.GetUser(h.db, id)
+	c, err := h.userSvc.GetUser(id)
 	if err != nil {
 		return nil, constants.UserRqstErrorCode, err
 	}
+
 	if c == nil {
 		// client will deal with a nil (e.g., not found) user
 		return nil, 0, nil
@@ -225,13 +225,14 @@ func (h handler) handleGetOneUser(path string, pathNodes []string) (cust interfa
 func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	users := &api.Users{}
-	user := &api.User{}
-	isBulkRqst, msg, err := h.decodeRequest(r, user, users)
+	users := domain.Users{}
+	user := domain.User{}
+	isBulkRqst, msg, err := h.decodeRequest(r, &user, &users)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(msg))
 		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
+		return
 	}
 
 	// Expecting URL.Path '/users'
@@ -264,12 +265,12 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isBulkRqst {
-		h.handleRqstMultipleUsers(start, w, r.URL.Path, *users, http.MethodPost)
+		h.handleRqstMultipleUsers(start, w, r.URL.Path, users, http.MethodPost)
 		return
 	}
 
 	// Logging is handled by 'handlePostSingleUser()'
-	resp := h.handlePostSingleUser(*user)
+	resp := h.handlePostSingleUser(user)
 	resourceID := fmt.Sprintf("/users/%d", resp.User.ID)
 	w.Header().Add("Location", resourceID)
 	w.WriteHeader(resp.HTTPStatus)
@@ -277,25 +278,25 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	UserRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) handlePostSingleUser(u api.User) Response {
-	h.logger.Debugf("handlePostSingleUser: user %+v", u)
-	if u.ID != 0 { // User ID must *NOT* be populated (i.e., with a non-zero value) on an insert
-		errMsg := fmt.Sprintf("expected User.ID > 0, got User.ID = %d", u.ID)
+func (h handler) handlePostSingleUser(user domain.User) Response {
+	h.logger.Debugf("handlePostSingleUser: user %+v", user)
+	if user.ID != 0 { // User ID must *NOT* be populated (i.e., with a non-zero value) on an insert
+		errMsg := fmt.Sprintf("expected User.ID > 0, got User.ID = %d", user.ID)
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.InvalidInsertErrorCode,
 			constants.HTTPStatus:  http.StatusBadRequest,
-			constants.Path:        fmt.Sprintf("/users/%d", u.ID),
+			constants.Path:        fmt.Sprintf("/users/%d", user.ID),
 			constants.ErrorDetail: errMsg,
 		}).Error(constants.InvalidInsertError)
 		return Response{
 			HTTPStatus: http.StatusBadRequest,
 			ErrMsg:     errMsg,
 			ErrReason:  constants.UserRqstErrorCode,
-			User:       u,
+			User:       user,
 		}
 	}
 
-	userID, errReason, err := user.InsertUser(h.db, u)
+	userID, errReason, err := h.userSvc.CreateUser(user)
 	if err != nil {
 		errMsg := constants.DBUpSertError
 		status := http.StatusInternalServerError
@@ -309,25 +310,25 @@ func (h handler) handlePostSingleUser(u api.User) Response {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
 			constants.HTTPStatus:  status,
-			constants.Path:        fmt.Sprintf("/users/%d", u.ID),
+			constants.Path:        fmt.Sprintf("/users/%d", user.ID),
 			constants.ErrorDetail: err,
 		}).Error(errMsg)
 		return Response{
 			HTTPStatus: http.StatusBadRequest,
 			ErrMsg:     errMsg,
 			ErrReason:  errCode,
-			User:       u,
+			User:       user,
 		}
 	}
 
-	u.ID = userID
-	u.HREF = fmt.Sprintf("/users/%d", userID)
+	user.ID = userID
+	user.HREF = fmt.Sprintf("/users/%d", userID)
 
 	return Response{
 		HTTPStatus: http.StatusCreated,
 		ErrMsg:     "",
 		ErrReason:  constants.NoErrorCode,
-		User:       u,
+		User:       user,
 	}
 
 }
@@ -335,8 +336,8 @@ func (h handler) handlePostSingleUser(u api.User) Response {
 func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
-	users := &api.Users{}
-	user := &api.User{}
+	users := &domain.Users{}
+	user := &domain.User{}
 	isBulkRqst, msg, err := h.decodeRequest(r, user, users)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -385,8 +386,8 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 	UserRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) handlePutSingleUser(usr api.User) Response {
-	errCode, err := user.UpdateUser(h.db, usr)
+func (h handler) handlePutSingleUser(user domain.User) Response {
+	errCode, err := h.userSvc.UpdateUser(user)
 	if err != nil {
 		errMsg := constants.DBUpSertError
 		httpStatus := http.StatusInternalServerError
@@ -397,14 +398,14 @@ func (h handler) handlePutSingleUser(usr api.User) Response {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
 			constants.HTTPStatus:  httpStatus,
-			constants.Path:        fmt.Sprintf("/users/%d", usr.ID),
+			constants.Path:        fmt.Sprintf("/users/%d", user.ID),
 			constants.ErrorDetail: err,
 		}).Error(errMsg)
 		resp := Response{
 			HTTPStatus: httpStatus,
 			ErrMsg:     errMsg,
 			ErrReason:  errCode,
-			User:       usr,
+			User:       user,
 		}
 		return resp
 	}
@@ -413,14 +414,16 @@ func (h handler) handlePutSingleUser(usr api.User) Response {
 		HTTPStatus: http.StatusOK,
 		ErrMsg:     "",
 		ErrReason:  constants.NoErrorCode,
-		User:       usr,
+		User:       user,
 	}
 }
 
-func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter, path string, users api.Users, method string) {
+func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter, path string, users domain.Users, method string) {
 	h.logger.Debugf("handleRqstMultipleUsers for %s", method)
 	bp := NewBulkProcessor(h.maxBulkOps)
-	br := NewBulkRequest(users, method, h)
+	defer bp.Stop()
+
+	br := NewBulkRequest(users, method, h.userSvc)
 	rqstCompleteC := make(chan Response)
 	numUsers := len(users.Users)
 
@@ -467,7 +470,6 @@ func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter,
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(marshResp)
 
-	bp.Stop()
 	h.logger.Debugf("handleRqstMultipleUsers: reponse sent, bulkprocessor stopped for %s", method)
 	UserRqstDur.WithLabelValues(strconv.Itoa(overallHTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 	return
@@ -483,7 +485,7 @@ func (h handler) handleConcurrentRqst(rqst Request, rqstC chan Request, rqstComp
 	h.logger.Debug("handleConcurrentRqst: response sent")
 }
 
-func (h handler) decodeRequest(r *http.Request, user *api.User, users *api.Users) (bool, string, error) {
+func (h handler) decodeRequest(r *http.Request, user *domain.User, users *domain.Users) (bool, string, error) {
 	// Get user(s) out of request body and validate
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields() // error if user sends extra data
@@ -506,9 +508,9 @@ func (h handler) decodeRequest(r *http.Request, user *api.User, users *api.Users
 	}
 
 	if isBulkRqst {
-		err = d.Decode(&users)
+		err = d.Decode(users)
 	} else {
-		err = d.Decode(&user)
+		err = d.Decode(user)
 	}
 	if err != nil {
 		h.logger.WithFields(log.Fields{
@@ -574,7 +576,7 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
-	errCode, err := user.DeleteUser(h.db, uid)
+	errCode, err := h.userSvc.DeleteUser(uid)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
 			constants.ErrorCode:   errCode,
@@ -619,13 +621,13 @@ func (h handler) getURLPathNodes(path string) ([]string, error) {
 	return pathNodes, nil
 }
 
-func (h handler) parseRqst(r *http.Request) (api.User, []string, error) {
+func (h handler) parseRqst(r *http.Request) (domain.User, []string, error) {
 	//
 	// Get user out of request body and validate
 	//
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields() // error if user sends extra data
-	u := api.User{}
+	u := domain.User{}
 	err := d.Decode(&u)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
@@ -634,7 +636,7 @@ func (h handler) parseRqst(r *http.Request) (api.User, []string, error) {
 			constants.ErrorDetail: err.Error(),
 		}).Error(constants.JSONDecodingError)
 
-		return api.User{}, nil, err
+		return domain.User{}, nil, err
 	}
 	if d.More() {
 		h.logger.WithFields(log.Fields{
@@ -653,22 +655,19 @@ func (h handler) parseRqst(r *http.Request) (api.User, []string, error) {
 			constants.ErrorDetail: err,
 		}).Error(constants.MalformedURL)
 
-		return api.User{}, nil, err
+		return domain.User{}, nil, err
 	}
 
 	return u, pathNodes, nil
 }
 
-// NewUserHandler returns a *http.Handler configured with a database connection
-func NewUserHandler(db *sql.DB, logger *log.Entry, maxBulkOps int) (http.Handler, error) {
-	if db == nil {
-		return nil, errors.New("non-nil sql.DB connection required")
-	}
+// NewUserHandler returns a properly configured *http.Handler
+func NewUserHandler(userSvc services.UserSvcInterface, logger *log.Entry, maxBulkOps int) (http.Handler, error) {
 	if logger == nil {
 		return nil, errors.New("non-nil log.Entry  required")
 	}
 	if maxBulkOps == 0 {
 		return nil, errors.New("maxBulkOps must be greater than zero")
 	}
-	return handler{db: db, maxBulkOps: maxBulkOps, logger: logger}, nil
+	return handler{userSvc: userSvc, maxBulkOps: maxBulkOps, logger: logger}, nil
 }

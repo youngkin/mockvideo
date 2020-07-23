@@ -26,9 +26,11 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/src/api"
-	logging "github.com/youngkin/mockvideo/src/internal/platform/logging"
-	"github.com/youngkin/mockvideo/src/internal/user/tests"
+	"github.com/youngkin/mockvideo/cmd/accountd/services"
+	"github.com/youngkin/mockvideo/internal/db"
+	"github.com/youngkin/mockvideo/internal/db/tests"
+	"github.com/youngkin/mockvideo/internal/domain"
+	logging "github.com/youngkin/mockvideo/internal/logging"
 )
 
 // logger is used to control code-under-test logging behavior
@@ -55,8 +57,8 @@ func TestPOSTUser(t *testing.T) {
 		expectedHTTPStatus int
 		expectedResourceID string
 		postData           string
-		user               api.User
-		setupFunc          func(*testing.T, api.User) (*sql.DB, sqlmock.Sqlmock)
+		user               domain.User
+		setupFunc          func(*testing.T, domain.User) (*sql.DB, sqlmock.Sqlmock)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
@@ -67,14 +69,14 @@ func TestPOSTUser(t *testing.T) {
 			expectedResourceID: "/users/1",
 			postData: `
 				{
-					"AccountID":1,
-					"Name":"mickey dolenz",
+					"accountid":1,
+					"name":"mickey dolenz",
 					"eMail":"mickeyd@gmail.com",
 					"role":1,
 					"password":"myawesomepassword"
 				}
 				`,
-			user: api.User{
+			user: domain.User{
 				AccountID: 1,
 				Name:      "mickey dolenz",
 				EMail:     "mickeyd@gmail.com",
@@ -100,7 +102,7 @@ func TestPOSTUser(t *testing.T) {
 					"password":"myawesomepassword"
 				}
 				`,
-			user: api.User{
+			user: domain.User{
 				AccountID: 1,
 				Name:      "mickey dolenz",
 				EMail:     "mickeyd@gmail.com",
@@ -127,7 +129,7 @@ func TestPOSTUser(t *testing.T) {
 					"password":"myawesomepassword"
 				}
 				`,
-			user: api.User{
+			user: domain.User{
 				AccountID: 1,
 				Name:      "mickey dolenz",
 				EMail:     "mickeyd@gmail.com",
@@ -141,11 +143,21 @@ func TestPOSTUser(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock := tc.setupFunc(t, tc.user)
-
-			srvHandler, err := NewUserHandler(db, logger, 10)
+			dbase, mock := tc.setupFunc(t, tc.user)
+			ut, err := db.NewTable(dbase)
 			if err != nil {
-				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
+
+			userSvc := services.UserSvc{
+				Repo:   ut,
+				Logger: logger,
+			}
+
+			srvHandler, err := NewUserHandler(&userSvc, logger, 10)
+			if err != nil {
+				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
 
 			testSrv := httptest.NewServer(http.HandlerFunc(srvHandler.ServeHTTP))
@@ -186,8 +198,8 @@ func TestPUTUser(t *testing.T) {
 		updateResourceID   string
 		expectedResourceID string
 		postData           string
-		user               api.User
-		setupFunc          func(*testing.T, api.User) (*sql.DB, sqlmock.Sqlmock)
+		user               domain.User
+		setupFunc          func(*testing.T, domain.User) (*sql.DB, sqlmock.Sqlmock)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
@@ -207,7 +219,7 @@ func TestPUTUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: api.User{
+			user: domain.User{
 				ID:        2,
 				AccountID: 1,
 				Name:      "mickey dolenz",
@@ -237,7 +249,7 @@ func TestPUTUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: api.User{
+			user: domain.User{
 				ID:        100,
 				AccountID: 1,
 				Name:      "Mickey Mouse",
@@ -265,7 +277,7 @@ func TestPUTUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: api.User{
+			user: domain.User{
 				ID:        100,
 				AccountID: 1,
 				Name:      "Mickey Mouse",
@@ -293,7 +305,7 @@ func TestPUTUser(t *testing.T) {
 			"password":"myawesomepassword"
 		}
 		`,
-			user: api.User{
+			user: domain.User{
 				ID:        100,
 				AccountID: 1,
 				Name:      "Mickey Mouse",
@@ -308,11 +320,21 @@ func TestPUTUser(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock := tc.setupFunc(t, tc.user)
-
-			srvHandler, err := NewUserHandler(db, logger, 10)
+			dbase, mock := tc.setupFunc(t, tc.user)
+			ut, err := db.NewTable(dbase)
 			if err != nil {
-				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
+
+			userSvc := services.UserSvc{
+				Repo:   ut,
+				Logger: logger,
+			}
+
+			srvHandler, err := NewUserHandler(&userSvc, logger, 10)
+			if err != nil {
+				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
 
 			testSrv := httptest.NewServer(http.HandlerFunc(srvHandler.ServeHTTP))
@@ -357,8 +379,8 @@ func TestDELETEUser(t *testing.T) {
 		updateResourceID   string
 		expectedResourceID string
 		postData           string
-		user               api.User
-		setupFunc          func(*testing.T, api.User) (*sql.DB, sqlmock.Sqlmock)
+		user               domain.User
+		setupFunc          func(*testing.T, domain.User) (*sql.DB, sqlmock.Sqlmock)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
@@ -378,7 +400,7 @@ func TestDELETEUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: api.User{
+			user: domain.User{
 				ID:        2,
 				AccountID: 1,
 				Name:      "mickey dolenz",
@@ -406,7 +428,7 @@ func TestDELETEUser(t *testing.T) {
 				"password":"myawesomepassword"
 			}
 			`,
-			user: api.User{
+			user: domain.User{
 				ID:        2,
 				AccountID: 1,
 				Name:      "mickey dolenz",
@@ -421,11 +443,21 @@ func TestDELETEUser(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock := tc.setupFunc(t, tc.user)
-
-			srvHandler, err := NewUserHandler(db, logger, 10)
+			dbase, mock := tc.setupFunc(t, tc.user)
+			ut, err := db.NewTable(dbase)
 			if err != nil {
-				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
+
+			userSvc := services.UserSvc{
+				Repo:   ut,
+				Logger: logger,
+			}
+
+			srvHandler, err := NewUserHandler(&userSvc, logger, 10)
+			if err != nil {
+				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
 
 			testSrv := httptest.NewServer(http.HandlerFunc(srvHandler.ServeHTTP))
@@ -462,7 +494,7 @@ func TestGetAllUsers(t *testing.T) {
 		testName           string
 		url                string
 		shouldPass         bool
-		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, api.Users)
+		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *domain.Users)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 		expectedHTTPStatus int
 	}{
@@ -502,15 +534,19 @@ func TestGetAllUsers(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock, expected := tc.setupFunc(t)
-			defer db.Close()
+			dbase, mock, expected := tc.setupFunc(t)
+			ut, err := db.NewTable(dbase)
+			if err != nil {
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
 
-			// populate User.HREF from User.ID
-			for _, user := range expected.Users {
-				user.HREF = "/users/" + strconv.Itoa(user.ID)
+			userSvc := services.UserSvc{
+				Repo:   ut,
+				Logger: logger,
 			}
 
-			userHandler, err := NewUserHandler(db, logger, 10)
+			userHandler, err := NewUserHandler(&userSvc, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
@@ -531,6 +567,11 @@ func TestGetAllUsers(t *testing.T) {
 			}
 
 			if tc.shouldPass {
+				// populate User.HREF from User.ID
+				for _, user := range expected.Users {
+					user.HREF = "/users/" + strconv.Itoa(user.ID)
+				}
+
 				actual, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
 					t.Fatalf("an error '%s' was not expected reading response body", err)
@@ -559,7 +600,7 @@ func TestGetUser(t *testing.T) {
 		testName           string
 		url                string
 		shouldPass         bool
-		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *api.User)
+		setupFunc          func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *domain.User)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
 		expectedHTTPStatus int
 	}{
@@ -599,17 +640,26 @@ func TestGetUser(t *testing.T) {
 
 	for _, tc := range tcs {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock, expected := tc.setupFunc(t)
-			defer db.Close()
+			dbase, mock, expected := tc.setupFunc(t)
+			ut, err := db.NewTable(dbase)
+			if err != nil {
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
+
+			userSvc := services.UserSvc{
+				Repo:   ut,
+				Logger: logger,
+			}
 
 			// populate User.HREF from User.ID
 			if expected != nil {
 				expected.HREF = tc.url
 			}
 
-			userHandler, err := NewUserHandler(db, logger, 10)
+			userHandler, err := NewUserHandler(&userSvc, logger, 10)
 			if err != nil {
-				t.Fatalf("error '%s' was not expected when getting a customer handler", err)
+				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
 
 			testSrv := httptest.NewServer(http.HandlerFunc(userHandler.ServeHTTP))

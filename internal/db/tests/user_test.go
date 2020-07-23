@@ -15,15 +15,15 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	"github.com/youngkin/mockvideo/src/api"
-	"github.com/youngkin/mockvideo/src/internal/user"
+	"github.com/youngkin/mockvideo/internal/db"
+	"github.com/youngkin/mockvideo/internal/domain"
 )
 
 func TestGetAllUsers(t *testing.T) {
 	tests := []struct {
 		testName     string
 		shouldPass   bool
-		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, api.Users)
+		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *domain.Users)
 		teardownFunc func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
@@ -48,15 +48,27 @@ func TestGetAllUsers(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock, expected := tc.setupFunc(t)
-			defer db.Close()
+			dbase, mock, expected := tc.setupFunc(t)
+			ut, err := db.NewTable(dbase)
+			if err != nil {
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
 
-			actual, err := user.GetAllUsers(db)
+			actual, err := ut.GetUsers()
 			if tc.shouldPass && err != nil {
 				t.Fatalf("error '%s' was not expected", err)
 			}
 			if !tc.shouldPass && err == nil {
 				t.Fatalf("expected error didn't occur")
+			}
+			if !tc.shouldPass {
+				tc.teardownFunc(t, mock)
+				return
+			}
+
+			if tc.shouldPass && actual == nil {
+				t.Fatal("expected non-nil Users from GetUsers() for 'passing' test")
 			}
 
 			if len(expected.Users) != len(actual.Users) {
@@ -87,7 +99,7 @@ func TestGetUser(t *testing.T) {
 		testName     string
 		userID       int
 		shouldPass   bool
-		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *api.User)
+		setupFunc    func(*testing.T) (*sql.DB, sqlmock.Sqlmock, *domain.User)
 		teardownFunc func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
@@ -115,10 +127,14 @@ func TestGetUser(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock, expected := tc.setupFunc(t)
-			defer db.Close()
+			dbase, mock, expected := tc.setupFunc(t)
+			ut, err := db.NewTable(dbase)
+			if err != nil {
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
 
-			actual, err := user.GetUser(db, tc.userID)
+			actual, err := ut.GetUser(tc.userID)
 
 			validateExpectedErrors(t, err, tc.shouldPass)
 
@@ -137,15 +153,15 @@ func TestGetUser(t *testing.T) {
 func TestInsertUser(t *testing.T) {
 	tests := []struct {
 		testName       string
-		user           api.User
+		user           domain.User
 		expectedUserID int
 		shouldPass     bool
-		setupFunc      func(*testing.T, api.User) (*sql.DB, sqlmock.Sqlmock)
+		setupFunc      func(*testing.T, domain.User) (*sql.DB, sqlmock.Sqlmock)
 		teardownFunc   func(*testing.T, sqlmock.Sqlmock)
 	}{
 		{
 			testName: "testInsertUserSuccess",
-			user: api.User{
+			user: domain.User{
 				AccountID: 1,
 				Name:      "mama cass",
 				EMail:     "mama@gmail.com",
@@ -159,7 +175,7 @@ func TestInsertUser(t *testing.T) {
 		},
 		{
 			testName: "testInsertUsererror",
-			user: api.User{
+			user: domain.User{
 				AccountID: 1,
 				Name:      "mama cass",
 				EMail:     "mama@gmail.com",
@@ -175,10 +191,14 @@ func TestInsertUser(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.testName, func(t *testing.T) {
-			db, mock := tc.setupFunc(t, tc.user)
-			defer db.Close()
+			dbase, mock := tc.setupFunc(t, tc.user)
+			ut, err := db.NewTable(dbase)
+			if err != nil {
+				t.Fatalf("error creating user table instance: %s", err)
+			}
+			defer dbase.Close()
 
-			uID, _, err := user.InsertUser(db, tc.user)
+			uID, _, err := ut.CreateUser(tc.user)
 
 			validateExpectedErrors(t, err, tc.shouldPass)
 
