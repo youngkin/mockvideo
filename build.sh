@@ -26,6 +26,7 @@ dockerBuild() {
 }
 
 test() {
+    pre
     go test -race ./...
 }
 

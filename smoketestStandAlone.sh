@@ -13,7 +13,7 @@ echo "    Pre-populate tables with test data"
 ./infrastructure/sql/createTestDataDocker.sh
 
 echo "Start the accountd service"
-cd src/cmd/accountd; go build; ./accountd -configFile "testdata/config/config" -secretsDir "testdata/secrets" &
+cd cmd/accountd; go build; ./accountd -configFile "testdata/config/config" -secretsDir "testdata/secrets" &
 echo "Wait for the accountd service to start..."
 sleep 2
 

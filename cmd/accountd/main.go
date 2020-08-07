@@ -84,7 +84,7 @@ func main() {
 			constants.ConfigFileName: *configFileName,
 			constants.ErrorCode:      constants.UnableToOpenConfigErrorCode,
 			constants.ErrorDetail:    err.Error(),
-		}).Fatal(constants.UnableToOpenConfig)
+		}).Fatal(constants.UnableToOpenConfigMsg)
 		os.Exit(1)
 	}
 
@@ -94,7 +94,7 @@ func main() {
 			constants.ConfigFileName: *configFileName,
 			constants.ErrorCode:      constants.UnableToLoadConfigErrorCode,
 			constants.ErrorDetail:    err.Error(),
-		}).Fatal(constants.UnableToLoadConfig)
+		}).Fatal(constants.UnableToLoadConfigMsg)
 		os.Exit(1)
 	}
 
@@ -104,7 +104,7 @@ func main() {
 			constants.ConfigFileName: *secretsDir,
 			constants.ErrorCode:      constants.UnableToLoadSecretsErrorCode,
 			constants.ErrorDetail:    err.Error(),
-		}).Fatal(constants.UnableToLoadSecrets)
+		}).Fatal(constants.UnableToLoadSecretsMsg)
 		os.Exit(1)
 	}
 
@@ -133,7 +133,7 @@ func main() {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToGetDBConnStrErrorCode,
 			constants.ErrorDetail: err.Error(),
-		}).Fatal(constants.UnableToGetDBConnStr)
+		}).Fatal(constants.UnableToGetDBConnStrMsg)
 		os.Exit(1)
 	}
 
@@ -145,7 +145,7 @@ func main() {
 			constants.DBHost:      configs["dbHost"],
 			constants.DBPort:      configs["dbPort"],
 			constants.DBName:      configs["dbName"],
-		}).Fatal(constants.UnableToOpenDBConn)
+		}).Fatal(constants.UnableToOpenDBConnMsg)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -158,7 +158,7 @@ func main() {
 			constants.DBHost:      configs["dbHost"],
 			constants.DBPort:      configs["dbPort"],
 			constants.DBName:      configs["dbName"],
-		}).Fatal(constants.UnableToOpenDBConn)
+		}).Fatal(constants.UnableToOpenDBConnMsg)
 		os.Exit(1)
 	}
 
@@ -181,7 +181,7 @@ func main() {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateRepositoryErrorCode,
 			constants.ErrorDetail: "unable to create a user.Table instance",
-		}).Fatal(constants.UnableToCreateRepository)
+		}).Fatal(constants.UnableToCreateRepositoryMsg)
 		os.Exit(1)
 	}
 	userSvc, err := services.NewUserSvc(userTable, logger)
@@ -189,7 +189,7 @@ func main() {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.UnableToCreateUseCaseErrorCode,
 			constants.ErrorDetail: "unable to create a services.UserUseCase instance",
-		}).Fatal(constants.UnableToCreateUseCase)
+		}).Fatal(constants.UnableToCreateUseCaseMsg)
 		os.Exit(1)
 	}
 
@@ -204,7 +204,7 @@ func main() {
 			constants.DBHost:      configs["dbHost"],
 			constants.DBPort:      configs["dbPort"],
 			constants.DBName:      configs["dbName"],
-		}).Fatal(constants.UnableToCreateHTTPHandler)
+		}).Fatal(constants.UnableToCreateHTTPHandlerMsg)
 		os.Exit(1)
 	}
 
@@ -218,10 +218,10 @@ func main() {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		logger.WithFields(log.Fields{
 			constants.ErrorCode:   constants.MalformedURLErrorCode,
-			constants.ErrorDetail: errors.New(constants.MalformedURL),
+			constants.ErrorDetail: errors.New(constants.MalformedURLMsg),
 		}).Info("handling request")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(constants.MalformedURL))
+		w.Write([]byte(constants.MalformedURLMsg))
 	})
 
 	port, ok := configs["port"]

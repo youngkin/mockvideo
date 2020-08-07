@@ -5,21 +5,21 @@
 package services
 
 import (
-	"github.com/juju/errors"
+	"errors"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/youngkin/mockvideo/internal/constants"
 	"github.com/youngkin/mockvideo/internal/domain"
-	dom2 "github.com/youngkin/mockvideo/internal/domain"
 )
 
 // UserSvcInterface defines the operations to be supported by any types that provide
 // the implementations of user related usecases
+// TODO: This exactly matches the UserRepository interface. This smells.
 type UserSvcInterface interface {
-	GetUsers() (*dom2.Users, error)
-	GetUser(id int) (*dom2.User, error)
-	CreateUser(user dom2.User) (id int, errCode constants.ErrCode, err error)
-	UpdateUser(user dom2.User) (constants.ErrCode, error)
+	GetUsers() (*domain.Users, error)
+	GetUser(id int) (*domain.User, error)
+	CreateUser(user domain.User) (id int, errCode constants.ErrCode, err error)
+	UpdateUser(user domain.User) (constants.ErrCode, error)
 	DeleteUser(id int) (constants.ErrCode, error)
 }
 
@@ -38,18 +38,32 @@ func NewUserSvc(ur domain.UserRepository, logger *log.Entry) (*UserSvc, error) {
 	return &UserSvc{Repo: ur, Logger: logger}, nil
 }
 
-// GetUsers ...
-func (us *UserSvc) GetUsers() (*dom2.Users, error) {
-	return us.Repo.GetUsers()
+// GetUsers retrieves all Users from mySQL
+func (us *UserSvc) GetUsers() (*domain.Users, error) {
+	users, err := us.Repo.GetUsers()
+
+	if err != nil {
+		us.logUserError(err)
+		return nil, err
+	}
+
+	return users, nil
 }
 
-// GetUser ...
-func (us *UserSvc) GetUser(id int) (*dom2.User, error) {
-	return us.Repo.GetUser(id)
+// GetUser retrieves a user from mySQL
+func (us *UserSvc) GetUser(id int) (*domain.User, error) {
+	u, err := us.Repo.GetUser(id)
+
+	if err != nil {
+		us.logUserError(err)
+		return nil, err
+	}
+
+	return u, nil
 }
 
-// CreateUser ...
-func (us *UserSvc) CreateUser(user dom2.User) (id int, errCode constants.ErrCode, err error) {
+// CreateUser inserts a new User into mySQL
+func (us *UserSvc) CreateUser(user domain.User) (id int, errCode constants.ErrCode, err error) {
 	u := domain.User{
 		AccountID: user.AccountID,
 		EMail:     user.EMail,
@@ -61,12 +75,30 @@ func (us *UserSvc) CreateUser(user dom2.User) (id int, errCode constants.ErrCode
 	return id, errCode, err
 }
 
-// UpdateUser ...
-func (us *UserSvc) UpdateUser(user dom2.User) (constants.ErrCode, error) {
+// UpdateUser updates an existing user in mySQL
+func (us *UserSvc) UpdateUser(user domain.User) (constants.ErrCode, error) {
 	return us.Repo.UpdateUser(user)
 }
 
-// DeleteUser ...
+// DeleteUser deletes an existing user from mySQL
 func (us *UserSvc) DeleteUser(id int) (constants.ErrCode, error) {
 	return us.Repo.DeleteUser(id)
+}
+
+func (us *UserSvc) logUserError(e error) {
+	var eu constants.UserRqstError
+
+	if errors.As(e, &eu) {
+		us.Logger.WithFields(log.Fields{
+			constants.ErrorCode:   eu.ErrCode,
+			constants.ErrorDetail: eu.Error(),
+		}).Error(eu.ErrMsg)
+
+		return
+	}
+
+	us.Logger.WithFields(log.Fields{
+		constants.ErrorCode:   constants.UnknownErrorCode,
+		constants.ErrorDetail: e.Error(),
+	}).Error("unexpected error occurred in UserSvc, check ErrorDetail field for more info")
 }

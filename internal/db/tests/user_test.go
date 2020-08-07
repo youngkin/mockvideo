@@ -57,10 +57,10 @@ func TestGetAllUsers(t *testing.T) {
 
 			actual, err := ut.GetUsers()
 			if tc.shouldPass && err != nil {
-				t.Fatalf("error '%s' was not expected", err)
+				t.Errorf("error '%s' was not expected", err)
 			}
 			if !tc.shouldPass && err == nil {
-				t.Fatalf("expected error didn't occur")
+				t.Errorf("expected error didn't occur")
 			}
 			if !tc.shouldPass {
 				tc.teardownFunc(t, mock)
@@ -68,7 +68,7 @@ func TestGetAllUsers(t *testing.T) {
 			}
 
 			if tc.shouldPass && actual == nil {
-				t.Fatal("expected non-nil Users from GetUsers() for 'passing' test")
+				t.Errorf("expected non-nil Users from GetUsers() for 'passing' test")
 			}
 
 			if len(expected.Users) != len(actual.Users) {

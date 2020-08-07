@@ -66,14 +66,19 @@ func NewTable(db *sql.DB) (*Table, error) {
 	return &Table{db: db}, nil
 }
 
-// GetUsers will return all customers known to the application
+// GetUsers will return all users known to the application
 func (ut *Table) GetUsers() (*domain.Users, error) {
 	start := time.Now()
 
 	results, err := ut.db.Query(getAllUsersQuery)
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, readAll, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return nil, errors.Annotate(err, "error querying DB")
+		return nil, constants.UserRqstError{
+			MVError: constants.MVError{
+				ErrCode:    constants.UserRqstErrorCode,
+				ErrMsg:     constants.UserRqstErrorMsg,
+				ErrDetail:  "error querying users",
+				WrappedErr: err}}
 	}
 
 	us := domain.Users{}
@@ -87,7 +92,12 @@ func (ut *Table) GetUsers() (*domain.Users, error) {
 			&u.Role)
 		if err != nil {
 			DBRqstDur.WithLabelValues(userTbl, readAll, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-			return nil, errors.Annotate(err, "error scanning result set")
+			return nil, constants.UserRqstError{
+				MVError: constants.MVError{
+					ErrCode:    constants.UserRqstErrorCode,
+					ErrMsg:     constants.UserRqstErrorMsg,
+					ErrDetail:  "error scanning users query result set",
+					WrappedErr: err}}
 		}
 
 		us.Users = append(us.Users, &u)
@@ -112,7 +122,12 @@ func (ut *Table) GetUser(id int) (*domain.User, error) {
 		&user.Role)
 	if err != nil && err != sql.ErrNoRows {
 		DBRqstDur.WithLabelValues(userTbl, readOne, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return nil, errors.Annotate(err, "error scanning user row")
+		return nil, constants.UserRqstError{
+			MVError: constants.MVError{
+				ErrCode:    constants.UserRqstErrorCode,
+				ErrMsg:     constants.UserRqstErrorMsg,
+				ErrDetail:  "error scanning user row",
+				WrappedErr: err}}
 	}
 	if err == sql.ErrNoRows {
 		DBRqstDur.WithLabelValues(userTbl, readOne, ok).Observe(float64(time.Since(start)) / float64(time.Second))
@@ -155,7 +170,7 @@ func (ut *Table) CreateUser(u domain.User) (int, constants.ErrCode, error) {
 	// TODO: Consider not casting 'id' to an int. Depending on where this code runs, an 'int'
 	// TODO: is either 32 or 64 bytes, so this cast *could* be OK
 	DBRqstDur.WithLabelValues(userTbl, create, ok).Observe(float64(time.Since(start)) / float64(time.Second))
-	return int(id), constants.NoErrorCode, nil
+	return int(id), constants.UnknownErrorCode, nil
 }
 
 // UpdateUser takes the provided user data, inserts it into the db, and returns the newly created user ID
@@ -203,7 +218,7 @@ func (ut *Table) UpdateUser(u domain.User) (constants.ErrCode, error) {
 	tx.Commit()
 
 	DBRqstDur.WithLabelValues(userTbl, update, ok).Observe(float64(time.Since(start)) / float64(time.Second))
-	return constants.NoErrorCode, nil
+	return constants.UnknownErrorCode, nil
 }
 
 // DeleteUser deletes the user identified by u.id from the database
@@ -217,5 +232,5 @@ func (ut *Table) DeleteUser(id int) (constants.ErrCode, error) {
 	}
 
 	DBRqstDur.WithLabelValues(userTbl, delete, ok).Observe(float64(time.Since(start)) / float64(time.Second))
-	return constants.NoErrorCode, nil
+	return constants.UnknownErrorCode, nil
 }

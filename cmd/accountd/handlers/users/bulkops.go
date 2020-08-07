@@ -120,7 +120,7 @@ func (bp BulkProcesor) process(rqst Request) {
 
 	r := Response{
 		ErrMsg:    "",
-		ErrReason: constants.NoErrorCode,
+		ErrReason: constants.UnknownErrorCode,
 	}
 	switch rqst.method {
 	case http.MethodPost:
