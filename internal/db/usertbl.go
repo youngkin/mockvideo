@@ -12,8 +12,8 @@ import (
 	"github.com/go-sql-driver/mysql"
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/youngkin/mockvideo/internal/constants"
 	"github.com/youngkin/mockvideo/internal/domain"
+	mverr "github.com/youngkin/mockvideo/internal/errors"
 )
 
 // DBRqstDur is used to capture the length and status of database requests
@@ -73,10 +73,10 @@ func (ut *Table) GetUsers() (*domain.Users, error) {
 	results, err := ut.db.Query(getAllUsersQuery)
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, readAll, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return nil, constants.UserRqstError{
-			MVError: constants.MVError{
-				ErrCode:    constants.UserRqstErrorCode,
-				ErrMsg:     constants.UserRqstErrorMsg,
+		return nil, mverr.UserRqstError{
+			MVError: mverr.MVError{
+				ErrCode:    mverr.UserRqstErrorCode,
+				ErrMsg:     mverr.UserRqstErrorMsg,
 				ErrDetail:  "error querying users",
 				WrappedErr: err}}
 	}
@@ -92,10 +92,10 @@ func (ut *Table) GetUsers() (*domain.Users, error) {
 			&u.Role)
 		if err != nil {
 			DBRqstDur.WithLabelValues(userTbl, readAll, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-			return nil, constants.UserRqstError{
-				MVError: constants.MVError{
-					ErrCode:    constants.UserRqstErrorCode,
-					ErrMsg:     constants.UserRqstErrorMsg,
+			return nil, mverr.UserRqstError{
+				MVError: mverr.MVError{
+					ErrCode:    mverr.UserRqstErrorCode,
+					ErrMsg:     mverr.UserRqstErrorMsg,
 					ErrDetail:  "error scanning users query result set",
 					WrappedErr: err}}
 		}
@@ -122,10 +122,10 @@ func (ut *Table) GetUser(id int) (*domain.User, error) {
 		&user.Role)
 	if err != nil && err != sql.ErrNoRows {
 		DBRqstDur.WithLabelValues(userTbl, readOne, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return nil, constants.UserRqstError{
-			MVError: constants.MVError{
-				ErrCode:    constants.UserRqstErrorCode,
-				ErrMsg:     constants.UserRqstErrorMsg,
+		return nil, mverr.UserRqstError{
+			MVError: mverr.MVError{
+				ErrCode:    mverr.UserRqstErrorCode,
+				ErrMsg:     mverr.UserRqstErrorMsg,
 				ErrDetail:  "error scanning user row",
 				WrappedErr: err}}
 	}
@@ -139,48 +139,48 @@ func (ut *Table) GetUser(id int) (*domain.User, error) {
 }
 
 // CreateUser takes the provided user data, inserts it into the db, and returns the newly created user ID.
-func (ut *Table) CreateUser(u domain.User) (int, constants.ErrCode, error) {
+func (ut *Table) CreateUser(u domain.User) (int, mverr.ErrCode, error) {
 	start := time.Now()
 
 	err := u.ValidateUser()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, create, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return 0, constants.UserValidationErrorCode, errors.Annotate(err, "User validation failure")
+		return 0, mverr.UserValidationErrorCode, errors.Annotate(err, "User validation failure")
 	}
 
 	r, err := ut.db.Exec(insertUserStmt, u.AccountID, u.Name, u.EMail, u.Role, u.Password)
 	if err != nil {
 		errDetail, ok := err.(*mysql.MySQLError)
 		if ok {
-			if errDetail.Number == constants.MySQLDupInsertErrorCode {
+			if errDetail.Number == mverr.MySQLDupInsertErrorCode {
 				DBRqstDur.WithLabelValues(userTbl, create, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-				return 0, constants.DBInsertDuplicateUserErrorCode, errors.Annotate(err, fmt.Sprintf("error inserting duplicate user into the database: %+v, possible duplicate email address", u))
+				return 0, mverr.DBInsertDuplicateUserErrorCode, errors.Annotate(err, fmt.Sprintf("error inserting duplicate user into the database: %+v, possible duplicate email address", u))
 			}
 		} else {
 			DBRqstDur.WithLabelValues(userTbl, create, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-			return 0, constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error inserting user %+v into DB", u))
+			return 0, mverr.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error inserting user %+v into DB", u))
 		}
 	}
 	id, err := r.LastInsertId()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, create, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return 0, constants.DBUpSertErrorCode, errors.Annotate(err, "error getting user ID")
+		return 0, mverr.DBUpSertErrorCode, errors.Annotate(err, "error getting user ID")
 	}
 
 	// TODO: Consider not casting 'id' to an int. Depending on where this code runs, an 'int'
 	// TODO: is either 32 or 64 bytes, so this cast *could* be OK
 	DBRqstDur.WithLabelValues(userTbl, create, ok).Observe(float64(time.Since(start)) / float64(time.Second))
-	return int(id), constants.UnknownErrorCode, nil
+	return int(id), mverr.UnknownErrorCode, nil
 }
 
 // UpdateUser takes the provided user data, inserts it into the db, and returns the newly created user ID
-func (ut *Table) UpdateUser(u domain.User) (constants.ErrCode, error) {
+func (ut *Table) UpdateUser(u domain.User) (mverr.ErrCode, error) {
 	start := time.Now()
 
 	err := u.ValidateUser()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return constants.DBUpSertErrorCode, errors.Annotate(err, "User validation failure")
+		return mverr.DBUpSertErrorCode, errors.Annotate(err, "User validation failure")
 	}
 
 	// This entire db.Begin/tx.Rollback/Commit seem awkward to me. But it's here because
@@ -188,7 +188,7 @@ func (ut *Table) UpdateUser(u domain.User) (constants.ErrCode, error) {
 	tx, err := ut.db.Begin()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error beginning transaction for user: %+v", u))
+		return mverr.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error beginning transaction for user: %+v", u))
 	}
 	r := ut.db.QueryRow(getUserQuery, u.ID)
 	userRow := domain.User{}
@@ -201,36 +201,36 @@ func (ut *Table) UpdateUser(u domain.User) (constants.ErrCode, error) {
 	if err != nil && err == sql.ErrNoRows {
 		tx.Rollback()
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return constants.DBInvalidRequestCode, errors.New(fmt.Sprintf("error, attempting to update non-existent user, user.ID %d", u.ID))
+		return mverr.DBInvalidRequestCode, errors.New(fmt.Sprintf("error, attempting to update non-existent user, user.ID %d", u.ID))
 	}
 	if err != nil && err != sql.ErrNoRows {
 		tx.Rollback()
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error updating user in the database: %+v", u))
+		return mverr.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error updating user in the database: %+v", u))
 	}
 
 	_, err = ut.db.Exec(updateUserStmt, u.ID, u.AccountID, u.Name, u.EMail, u.Role, u.Password, u.ID)
 	if err != nil {
 		tx.Rollback()
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return constants.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error updating user in the database: %+v", u))
+		return mverr.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error updating user in the database: %+v", u))
 	}
 	tx.Commit()
 
 	DBRqstDur.WithLabelValues(userTbl, update, ok).Observe(float64(time.Since(start)) / float64(time.Second))
-	return constants.UnknownErrorCode, nil
+	return mverr.UnknownErrorCode, nil
 }
 
 // DeleteUser deletes the user identified by u.id from the database
-func (ut *Table) DeleteUser(id int) (constants.ErrCode, error) {
+func (ut *Table) DeleteUser(id int) (mverr.ErrCode, error) {
 	start := time.Now()
 
 	_, err := ut.db.Exec(deleteUserStmt, id)
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, delete, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return constants.DBDeleteErrorCode, errors.Annotate(err, "Usesr delete error")
+		return mverr.DBDeleteErrorCode, errors.Annotate(err, "Usesr delete error")
 	}
 
 	DBRqstDur.WithLabelValues(userTbl, delete, ok).Observe(float64(time.Since(start)) / float64(time.Second))
-	return constants.UnknownErrorCode, nil
+	return mverr.UnknownErrorCode, nil
 }

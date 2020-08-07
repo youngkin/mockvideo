@@ -9,16 +9,16 @@ import (
 	"net/http"
 
 	"github.com/youngkin/mockvideo/cmd/accountd/services"
-	"github.com/youngkin/mockvideo/internal/constants"
 	"github.com/youngkin/mockvideo/internal/domain"
+	"github.com/youngkin/mockvideo/internal/errors"
 )
 
 // Response contains the results of in individual User request
 type Response struct {
-	HTTPStatus int               `json:"httpstatus"`
-	ErrMsg     string            `json:"errmsg"`
-	ErrReason  constants.ErrCode `json:"-"`
-	User       domain.User       `json:"user,omitempty"`
+	HTTPStatus int            `json:"httpstatus"`
+	ErrMsg     string         `json:"errmsg"`
+	ErrReason  errors.ErrCode `json:"-"`
+	User       domain.User    `json:"user,omitempty"`
 }
 
 // BulkResponse contains the results of in bulk  User request
@@ -120,7 +120,7 @@ func (bp BulkProcesor) process(rqst Request) {
 
 	r := Response{
 		ErrMsg:    "",
-		ErrReason: constants.UnknownErrorCode,
+		ErrReason: errors.UnknownErrorCode,
 	}
 	switch rqst.method {
 	case http.MethodPost:
@@ -155,7 +155,7 @@ func (bp BulkProcesor) process(rqst Request) {
 		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor received unsupported HTTP method request: %v+", rqst)
 		r = Response{
 			ErrMsg:     fmt.Sprintf("Bulk %s HTTP method not supported", rqst.method),
-			ErrReason:  constants.UserRqstErrorCode,
+			ErrReason:  errors.UserRqstErrorCode,
 			HTTPStatus: http.StatusBadRequest,
 			User:       rqst.user,
 		}

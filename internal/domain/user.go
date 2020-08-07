@@ -7,7 +7,7 @@ package domain
 import (
 	"fmt"
 
-	"github.com/youngkin/mockvideo/internal/constants"
+	mverr "github.com/youngkin/mockvideo/internal/errors"
 )
 
 // Role indicates what role a User can take regarding account actions (e.g., add a service)
@@ -29,9 +29,9 @@ const (
 type UserRepository interface {
 	GetUsers() (*Users, error)
 	GetUser(id int) (*User, error)
-	CreateUser(user User) (id int, errCode constants.ErrCode, err error)
-	UpdateUser(user User) (constants.ErrCode, error)
-	DeleteUser(id int) (constants.ErrCode, error)
+	CreateUser(user User) (id int, errCode mverr.ErrCode, err error)
+	UpdateUser(user User) (mverr.ErrCode, error)
+	DeleteUser(id int) (mverr.ErrCode, error)
 }
 
 // User represents the data about a user

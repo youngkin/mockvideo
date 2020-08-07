@@ -3,12 +3,14 @@
 // license that can be found in the LICENSE file.
 
 //
-// **NOTE** When adding constants, please order them in alphabetical sequence
+// **NOTE** When adding errors, please order them in alphabetical sequence
 //
 
-package constants
+package errors
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // ErrCode is the application type for reporting error codes
 type ErrCode int

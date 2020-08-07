@@ -8,8 +8,9 @@ import (
 	"errors"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/internal/constants"
 	"github.com/youngkin/mockvideo/internal/domain"
+	mverr "github.com/youngkin/mockvideo/internal/errors"
+	"github.com/youngkin/mockvideo/internal/logging"
 )
 
 // UserSvcInterface defines the operations to be supported by any types that provide
@@ -18,9 +19,9 @@ import (
 type UserSvcInterface interface {
 	GetUsers() (*domain.Users, error)
 	GetUser(id int) (*domain.User, error)
-	CreateUser(user domain.User) (id int, errCode constants.ErrCode, err error)
-	UpdateUser(user domain.User) (constants.ErrCode, error)
-	DeleteUser(id int) (constants.ErrCode, error)
+	CreateUser(user domain.User) (id int, errCode mverr.ErrCode, err error)
+	UpdateUser(user domain.User) (mverr.ErrCode, error)
+	DeleteUser(id int) (mverr.ErrCode, error)
 }
 
 // UserSvc provides the capability needed to interact with application
@@ -63,7 +64,7 @@ func (us *UserSvc) GetUser(id int) (*domain.User, error) {
 }
 
 // CreateUser inserts a new User into mySQL
-func (us *UserSvc) CreateUser(user domain.User) (id int, errCode constants.ErrCode, err error) {
+func (us *UserSvc) CreateUser(user domain.User) (id int, errCode mverr.ErrCode, err error) {
 	u := domain.User{
 		AccountID: user.AccountID,
 		EMail:     user.EMail,
@@ -76,29 +77,29 @@ func (us *UserSvc) CreateUser(user domain.User) (id int, errCode constants.ErrCo
 }
 
 // UpdateUser updates an existing user in mySQL
-func (us *UserSvc) UpdateUser(user domain.User) (constants.ErrCode, error) {
+func (us *UserSvc) UpdateUser(user domain.User) (mverr.ErrCode, error) {
 	return us.Repo.UpdateUser(user)
 }
 
 // DeleteUser deletes an existing user from mySQL
-func (us *UserSvc) DeleteUser(id int) (constants.ErrCode, error) {
+func (us *UserSvc) DeleteUser(id int) (mverr.ErrCode, error) {
 	return us.Repo.DeleteUser(id)
 }
 
 func (us *UserSvc) logUserError(e error) {
-	var eu constants.UserRqstError
+	var eu mverr.UserRqstError
 
 	if errors.As(e, &eu) {
 		us.Logger.WithFields(log.Fields{
-			constants.ErrorCode:   eu.ErrCode,
-			constants.ErrorDetail: eu.Error(),
+			logging.ErrorCode:   eu.ErrCode,
+			logging.ErrorDetail: eu.Error(),
 		}).Error(eu.ErrMsg)
 
 		return
 	}
 
 	us.Logger.WithFields(log.Fields{
-		constants.ErrorCode:   constants.UnknownErrorCode,
-		constants.ErrorDetail: e.Error(),
+		logging.ErrorCode:   mverr.UnknownErrorCode,
+		logging.ErrorDetail: e.Error(),
 	}).Error("unexpected error occurred in UserSvc, check ErrorDetail field for more info")
 }
