@@ -12,8 +12,15 @@ import (
 	"fmt"
 )
 
+// MySQLDupInsertErrorCode is an alias for the MySQL error code for duplicate row insert attempt
+const MySQLDupInsertErrorCode = 1062
+
 // ErrCode is the application type for reporting error codes
 type ErrCode int
+
+//
+// ---------------------- Errors ---------------------
+//
 
 // MVError is the MockVideo type for application specific errors
 type MVError struct {
@@ -27,29 +34,8 @@ func (e MVError) Error() string {
 	return fmt.Sprintf("ErrorCode: %d, ErrMsg: %s, ErrDetail: %s, WrappedErr: %s", e.ErrCode, e.ErrMsg, e.ErrDetail, e.WrappedErr)
 }
 
-// UserRqstError indicates there was a problem with a query for a user or users
-type UserRqstError struct {
-	MVError
-}
-
-func (e UserRqstError) Error() string {
-	return e.MVError.Error()
-}
-
-// MalformedURLError indicates an HTTP request had an invalid URL
-type MalformedURLError struct {
-	MVError
-}
-
-func (e MalformedURLError) Error() string {
-	return e.MVError.Error()
-}
-
-// MySQLDupInsertErrorCode is an alias for the MySQL error code for duplicate row insert attempt
-const MySQLDupInsertErrorCode = 1062
-
 //
-// Miscellaneous errors
+// ---------------------- Miscellaneous error messages ------------------------------
 //
 const (
 	// DBDeleteErrorMsg is an indication of a DB error during a DELETE operation
@@ -106,7 +92,7 @@ const (
 )
 
 //
-// User related error codes start at 1000 and go to 1999
+// ---------------------- User related error messages --------------
 //
 const (
 	// UserRqstErrorMsg indicates that GET(or PUT) /users or GET(or PUT) /users/{id} failed in some way
@@ -118,13 +104,20 @@ const (
 	UserValidationErrorMsg = "invalid user data"
 )
 
+//
+// ---------------------- Error codes -------------------------------
+//
+
 const (
 	//
 	// Misc related error codes start at 0 and go to 99
 	//
 
+	// NoErrorCode is a placeholder indicating no error has occurred.
+	NoErrorCode ErrCode = iota
+
 	// UnknownErrorCode is applied when unexpected errors occur and none of the other error codes apply
-	UnknownErrorCode ErrCode = iota
+	UnknownErrorCode
 
 	// DBDeleteErrorCode indication of a DB error during a DELETE operation
 	DBDeleteErrorCode
@@ -132,6 +125,8 @@ const (
 	DBInsertDuplicateUserErrorCode
 	// DBInvalidRequestCode indication of an invalid request, e.g., an update was attempted on an existing user
 	DBInvalidRequestCode
+	// DBNoUserErrorCode indicates an invalid DB request, like attempting to update a non-existent user
+	DBNoUserErrorCode
 	// DBQueryErrorCode is the error code associated with DBQueryError
 	DBQueryErrorCode
 	// DBRowScanErrorCode is the error code associated with DBRowScan

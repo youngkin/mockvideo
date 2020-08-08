@@ -105,40 +105,29 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var payload interface{}
+	var err2 *mverr.MVError
 
 	if len(pathNodes) == 1 {
-		payload, err = h.handleGetUsers(pathNodes[0])
+		payload, err2 = h.handleGetUsers(pathNodes[0])
 	} else {
-		payload, err = h.handleGetOneUser(pathNodes[0], pathNodes[1:])
+		payload, err2 = h.handleGetOneUser(pathNodes[0], pathNodes[1:])
 	}
 
-	var eu mverr.UserRqstError
-	var em mverr.MalformedURLError
-
-	if err != nil {
-		if errors.As(err, &eu) {
-			// Logging done in the service layer
-			completeRequest(http.StatusInternalServerError, eu.ErrMsg)
-			return
-		}
-		if errors.As(err, &em) {
+	if err2 != nil {
+		httpStatus := http.StatusInternalServerError
+		if err2.ErrCode == mverr.MalformedURLErrorCode {
+			httpStatus = http.StatusBadRequest
 			h.logger.WithFields(log.Fields{
-				logging.ErrorCode:   em.ErrCode,
-				logging.ErrorDetail: em.Error(),
-				logging.HTTPStatus:  http.StatusBadRequest,
-			}).Error(em.ErrMsg)
-			completeRequest(http.StatusBadRequest, em.ErrMsg)
+				logging.ErrorCode:   err2.ErrCode,
+				logging.ErrorDetail: err2.Error(),
+				logging.HTTPStatus:  httpStatus,
+			}).Error(err2.ErrMsg)
+			completeRequest(httpStatus, err2.ErrMsg)
 			return
 		}
-		// This logs unexpected errors. If an unexpected error bubbles up from the UserSvc then it
-		// will be logged twice. This logging is still needed to cover unexpected errors from other
-		// sources.
-		h.logger.WithFields(log.Fields{
-			logging.ErrorCode:   mverr.UnknownErrorCode,
-			logging.ErrorDetail: err.Error(),
-			logging.HTTPStatus:  http.StatusInternalServerError,
-		}).Error("unexpected error occurred in GET handler, check ErrorDetail field for more info")
-		completeRequest(http.StatusInternalServerError, mverr.UnknownErrorMsg)
+
+		// For non-mverr.MalformedURLErrors logging done in the service layer
+		completeRequest(httpStatus, err2.ErrMsg)
 		return
 	}
 
@@ -185,7 +174,7 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 	UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusFound)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) handleGetUsers(path string) (interface{}, error) {
+func (h handler) handleGetUsers(path string) (interface{}, *mverr.MVError) {
 	usrs, err := h.userSvc.GetUsers()
 	if err != nil {
 		return nil, err
@@ -204,29 +193,27 @@ func (h handler) handleGetUsers(path string) (interface{}, error) {
 // an error reason and error if there was a problem retrieving the user, or a nil user and a nil
 // error if the user was not found. The error reason will only be relevant when the error
 // is non-nil.
-func (h handler) handleGetOneUser(path string, pathNodes []string) (user interface{}, err error) {
+func (h handler) handleGetOneUser(path string, pathNodes []string) (interface{}, *mverr.MVError) {
 	if len(pathNodes) != 1 {
-		return nil, mverr.MalformedURLError{
-			MVError: mverr.MVError{
-				ErrCode:    mverr.MalformedURLErrorCode,
-				ErrMsg:     mverr.MalformedURLMsg,
-				ErrDetail:  fmt.Sprintf("expected 1 pathNode, got %d, pathNode: %s", len(pathNodes), pathNodes),
-				WrappedErr: err}}
+		return nil, &mverr.MVError{
+			ErrCode:    mverr.MalformedURLErrorCode,
+			ErrMsg:     mverr.MalformedURLMsg,
+			ErrDetail:  fmt.Sprintf("expected 1 pathNode, got %d, pathNode: %s", len(pathNodes), pathNodes),
+			WrappedErr: nil}
 	}
 
-	id, err := strconv.Atoi(pathNodes[0])
-	if err != nil {
-		return nil, mverr.MalformedURLError{
-			MVError: mverr.MVError{
-				ErrCode:    mverr.MalformedURLErrorCode,
-				ErrMsg:     mverr.MalformedURLMsg,
-				ErrDetail:  fmt.Sprintf("expected numeric user ID, got %+v", id),
-				WrappedErr: err}}
+	id, err1 := strconv.Atoi(pathNodes[0])
+	if err1 != nil {
+		return nil, &mverr.MVError{
+			ErrCode:    mverr.MalformedURLErrorCode,
+			ErrMsg:     mverr.MalformedURLMsg,
+			ErrDetail:  fmt.Sprintf("expected numeric user ID, got %+v", id),
+			WrappedErr: err1}
 	}
 
-	u, err := h.userSvc.GetUser(id)
-	if err != nil {
-		return nil, err
+	u, err2 := h.userSvc.GetUser(id)
+	if err2 != nil {
+		return nil, err2
 	}
 
 	if u == nil {
@@ -248,6 +235,12 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	user := domain.User{}
 	isBulkRqst, msg, err := h.decodeRequest(r, &user, &users)
 	if err != nil {
+		h.logger.WithFields(log.Fields{
+			logging.ErrorCode:   mverr.JSONDecodingErrorCode,
+			logging.HTTPStatus:  http.StatusBadRequest,
+			logging.Path:        r.URL.Path,
+			logging.ErrorDetail: err,
+		}).Error(mverr.JSONDecodingErrorMsg)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(msg))
 		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
@@ -270,12 +263,11 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(pathNodes) != 1 {
-		errMsg := fmt.Sprintf("expected '/users', got %s", pathNodes)
 		h.logger.WithFields(log.Fields{
 			logging.ErrorCode:   mverr.MalformedURLErrorCode,
 			logging.HTTPStatus:  http.StatusBadRequest,
 			logging.Path:        r.URL.Path,
-			logging.ErrorDetail: errMsg,
+			logging.ErrorDetail: fmt.Sprintf("expected '/users', got %s", pathNodes),
 		}).Error(mverr.MalformedURLMsg)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(mverr.MalformedURLMsg))
@@ -315,27 +307,22 @@ func (h handler) handlePostSingleUser(user domain.User) Response {
 		}
 	}
 
-	userID, errReason, err := h.userSvc.CreateUser(user)
+	userID, err := h.userSvc.CreateUser(user)
 	if err != nil {
-		errMsg := mverr.DBUpSertErrorMsg
 		status := http.StatusInternalServerError
-		errCode := mverr.DBUpSertErrorCode
-		if errReason == mverr.DBInsertDuplicateUserErrorCode {
-			// Invalid to insert a duplicate user, this is a client error hence the StatusBadRequest
+		if err.ErrCode == mverr.DBInsertDuplicateUserErrorCode || err.ErrCode == mverr.UserValidationErrorCode {
 			status = http.StatusBadRequest
-			errMsg = mverr.DBInsertDuplicateUserErrorMsg
-			errCode = mverr.DBInsertDuplicateUserErrorCode
 		}
 		h.logger.WithFields(log.Fields{
-			logging.ErrorCode:   errCode,
+			logging.ErrorCode:   err.ErrCode,
 			logging.HTTPStatus:  status,
 			logging.Path:        fmt.Sprintf("/users/%d", user.ID),
 			logging.ErrorDetail: err,
-		}).Error(errMsg)
+		}).Error(err.ErrMsg)
 		return Response{
 			HTTPStatus: http.StatusBadRequest,
-			ErrMsg:     errMsg,
-			ErrReason:  errCode,
+			ErrMsg:     err.ErrMsg,
+			ErrReason:  err.ErrCode,
 			User:       user,
 		}
 	}
@@ -345,8 +332,6 @@ func (h handler) handlePostSingleUser(user domain.User) Response {
 
 	return Response{
 		HTTPStatus: http.StatusCreated,
-		ErrMsg:     "",
-		ErrReason:  mverr.UnknownErrorCode,
 		User:       user,
 	}
 
@@ -406,24 +391,28 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h handler) handlePutSingleUser(user domain.User) Response {
-	errCode, err := h.userSvc.UpdateUser(user)
+	err := h.userSvc.UpdateUser(user)
 	if err != nil {
 		errMsg := mverr.DBUpSertErrorMsg
 		httpStatus := http.StatusInternalServerError
-		if errCode == mverr.DBInvalidRequestCode {
+		if err.ErrCode == mverr.UserValidationErrorCode {
+			httpStatus = http.StatusBadRequest
+			errMsg = mverr.UserValidationErrorMsg
+		}
+		if err.ErrCode == mverr.DBNoUserErrorCode {
 			httpStatus = http.StatusBadRequest
 			errMsg = mverr.DBNoUserErrorMsg
 		}
 		h.logger.WithFields(log.Fields{
-			logging.ErrorCode:   errCode,
+			logging.ErrorCode:   err.ErrCode,
 			logging.HTTPStatus:  httpStatus,
 			logging.Path:        fmt.Sprintf("/users/%d", user.ID),
-			logging.ErrorDetail: err,
+			logging.ErrorDetail: err.ErrDetail,
 		}).Error(errMsg)
 		resp := Response{
 			HTTPStatus: httpStatus,
 			ErrMsg:     errMsg,
-			ErrReason:  errCode,
+			ErrReason:  err.ErrCode,
 			User:       user,
 		}
 		return resp
@@ -432,7 +421,7 @@ func (h handler) handlePutSingleUser(user domain.User) Response {
 	return Response{
 		HTTPStatus: http.StatusOK,
 		ErrMsg:     "",
-		ErrReason:  mverr.UnknownErrorCode,
+		ErrReason:  mverr.NoErrorCode,
 		User:       user,
 	}
 }
@@ -463,12 +452,12 @@ func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter,
 		if resp.HTTPStatus != http.StatusCreated && resp.HTTPStatus != http.StatusOK {
 			overallHTTPStatus = http.StatusConflict
 		}
-		if resp.ErrReason != mverr.UnknownErrorCode {
+		if resp.ErrReason != mverr.NoErrorCode {
 			h.logger.WithFields(log.Fields{
 				logging.ErrorCode:   resp.ErrReason,
 				logging.HTTPStatus:  resp.HTTPStatus,
 				logging.ErrorDetail: resp.ErrMsg,
-			}).Error(resp.ErrMsg)
+			}).Errorf("error creating/updating user %+v", resp.User)
 		}
 	}
 
@@ -595,14 +584,14 @@ func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {
 		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
-	errCode, err := h.userSvc.DeleteUser(uid)
-	if err != nil {
+	err2 := h.userSvc.DeleteUser(uid)
+	if err2 != nil {
 		h.logger.WithFields(log.Fields{
-			logging.ErrorCode:   errCode,
+			logging.ErrorCode:   err2.ErrCode,
 			logging.HTTPStatus:  http.StatusInternalServerError,
 			logging.Path:        r.URL.Path,
-			logging.ErrorDetail: err,
-		}).Error(errCode)
+			logging.ErrorDetail: err2.ErrDetail,
+		}).Error(err2.ErrMsg)
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(mverr.DBDeleteErrorMsg))
 		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusInternalServerError)).Observe(float64(time.Since(start)) / float64(time.Second))
@@ -626,7 +615,7 @@ func (h handler) getURLPathNodes(path string) ([]string, error) {
 	pathNodes := strings.Split(path, "/")
 
 	if len(pathNodes) < 2 {
-		return nil, errors.New(mverr.UserRqstErrorMsg)
+		return nil, errors.New(mverr.MalformedURLMsg)
 	}
 
 	// Strip off empty string that replaces the first '/' in '/users'

@@ -55,11 +55,11 @@ func TestGetAllUsers(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			actual, err := ut.GetUsers()
-			if tc.shouldPass && err != nil {
-				t.Errorf("error '%s' was not expected", err)
+			actual, err2 := ut.GetUsers()
+			if tc.shouldPass && err2 != nil {
+				t.Errorf("error '%s' was not expected", err2)
 			}
-			if !tc.shouldPass && err == nil {
+			if !tc.shouldPass && err2 == nil {
 				t.Errorf("expected error didn't occur")
 			}
 			if !tc.shouldPass {
@@ -134,12 +134,12 @@ func TestGetUser(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			actual, err := ut.GetUser(tc.userID)
+			actual, err2 := ut.GetUser(tc.userID)
 
-			validateExpectedErrors(t, err, tc.shouldPass)
+			validateExpectedErrors(t, err2, tc.shouldPass)
 
 			if expected == nil && actual == nil {
-				validateExpectedErrors(t, err, tc.shouldPass)
+				validateExpectedErrors(t, err2, tc.shouldPass)
 				return
 			}
 			if *expected != *actual {
@@ -198,9 +198,9 @@ func TestInsertUser(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			uID, _, err := ut.CreateUser(tc.user)
+			uID, err2 := ut.CreateUser(tc.user)
 
-			validateExpectedErrors(t, err, tc.shouldPass)
+			validateExpectedErrors(t, err2, tc.shouldPass)
 
 			if tc.expectedUserID != uID {
 				t.Errorf("expected %+v , got %+v", tc.expectedUserID, uID)

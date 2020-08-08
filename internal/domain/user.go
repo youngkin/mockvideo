@@ -27,11 +27,11 @@ const (
 // TODO: Consider embedding 'ErrCode' inside an application specific error type. This would
 // TODO: likely require rethinking how errors are wrapped currently using 'errors.Annotate'
 type UserRepository interface {
-	GetUsers() (*Users, error)
-	GetUser(id int) (*User, error)
-	CreateUser(user User) (id int, errCode mverr.ErrCode, err error)
-	UpdateUser(user User) (mverr.ErrCode, error)
-	DeleteUser(id int) (mverr.ErrCode, error)
+	GetUsers() (*Users, *mverr.MVError)
+	GetUser(id int) (*User, *mverr.MVError)
+	CreateUser(user User) (id int, err *mverr.MVError)
+	UpdateUser(user User) *mverr.MVError
+	DeleteUser(id int) *mverr.MVError
 }
 
 // User represents the data about a user

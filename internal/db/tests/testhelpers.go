@@ -11,6 +11,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/youngkin/mockvideo/internal/domain"
+	mverr "github.com/youngkin/mockvideo/internal/errors"
 )
 
 // DBCallSetupHelper encapsulates common code needed to setup mock DB access to user data
@@ -271,7 +272,7 @@ func DBCallNoExpectationsSetupHelper(t *testing.T) (*sql.DB, sqlmock.Sqlmock, *d
 	return db, mock, nil
 }
 
-func validateExpectedErrors(t *testing.T, err error, shouldPass bool) {
+func validateExpectedErrors(t *testing.T, err *mverr.MVError, shouldPass bool) {
 	if shouldPass && err != nil {
 		t.Fatalf("error '%s' was not expected", err)
 	}

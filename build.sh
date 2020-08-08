@@ -7,12 +7,14 @@ pre() {
 }
 
 build() {
+    pre
     cd cmd/accountd
     go build
     cd -
 }
 
 buildARM() {
+    pre
     cd cmd/accountd
     /usr/bin/env GOOS=linux GOARCH=arm GOARM=7 go build
     cd -
@@ -27,7 +29,7 @@ dockerBuild() {
 
 test() {
     pre
-    go test -race ./...
+    go test -race ./... -count=1
 }
 
 allLocal() {

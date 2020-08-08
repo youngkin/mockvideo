@@ -118,18 +118,16 @@ func (bp BulkProcesor) process(rqst Request) {
 	}
 	defer releaseResource()
 
-	r := Response{
-		ErrMsg:    "",
-		ErrReason: errors.UnknownErrorCode,
-	}
+	r := Response{}
+
 	switch rqst.method {
 	case http.MethodPost:
 		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
-		_, errCode, err := rqst.userSvc.CreateUser(rqst.user)
+		_, err := rqst.userSvc.CreateUser(rqst.user)
 		if err != nil {
 			r = Response{
-				ErrMsg:     err.Error(),
-				ErrReason:  errCode,
+				ErrMsg:     err.ErrMsg,
+				ErrReason:  err.ErrCode,
 				HTTPStatus: http.StatusBadRequest,
 				User:       rqst.user,
 			}
@@ -139,11 +137,11 @@ func (bp BulkProcesor) process(rqst Request) {
 		}
 	case http.MethodPut:
 		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
-		errCode, err := rqst.userSvc.UpdateUser(rqst.user)
+		err := rqst.userSvc.UpdateUser(rqst.user)
 		if err != nil {
 			r = Response{
-				ErrMsg:     err.Error(),
-				ErrReason:  errCode,
+				ErrMsg:     err.ErrMsg,
+				ErrReason:  err.ErrCode,
 				HTTPStatus: http.StatusBadRequest,
 				User:       rqst.user,
 			}

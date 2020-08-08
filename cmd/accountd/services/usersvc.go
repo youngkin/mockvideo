@@ -17,11 +17,11 @@ import (
 // the implementations of user related usecases
 // TODO: This exactly matches the UserRepository interface. This smells.
 type UserSvcInterface interface {
-	GetUsers() (*domain.Users, error)
-	GetUser(id int) (*domain.User, error)
-	CreateUser(user domain.User) (id int, errCode mverr.ErrCode, err error)
-	UpdateUser(user domain.User) (mverr.ErrCode, error)
-	DeleteUser(id int) (mverr.ErrCode, error)
+	GetUsers() (*domain.Users, *mverr.MVError)
+	GetUser(id int) (*domain.User, *mverr.MVError)
+	CreateUser(user domain.User) (id int, err *mverr.MVError)
+	UpdateUser(user domain.User) *mverr.MVError
+	DeleteUser(id int) *mverr.MVError
 }
 
 // UserSvc provides the capability needed to interact with application
@@ -40,7 +40,7 @@ func NewUserSvc(ur domain.UserRepository, logger *log.Entry) (*UserSvc, error) {
 }
 
 // GetUsers retrieves all Users from mySQL
-func (us *UserSvc) GetUsers() (*domain.Users, error) {
+func (us *UserSvc) GetUsers() (*domain.Users, *mverr.MVError) {
 	users, err := us.Repo.GetUsers()
 
 	if err != nil {
@@ -52,7 +52,7 @@ func (us *UserSvc) GetUsers() (*domain.Users, error) {
 }
 
 // GetUser retrieves a user from mySQL
-func (us *UserSvc) GetUser(id int) (*domain.User, error) {
+func (us *UserSvc) GetUser(id int) (*domain.User, *mverr.MVError) {
 	u, err := us.Repo.GetUser(id)
 
 	if err != nil {
@@ -64,42 +64,43 @@ func (us *UserSvc) GetUser(id int) (*domain.User, error) {
 }
 
 // CreateUser inserts a new User into mySQL
-func (us *UserSvc) CreateUser(user domain.User) (id int, errCode mverr.ErrCode, err error) {
-	u := domain.User{
-		AccountID: user.AccountID,
-		EMail:     user.EMail,
-		Name:      user.Name,
-		Role:      user.Role,
-		Password:  user.Password,
+func (us *UserSvc) CreateUser(u domain.User) (id int, err *mverr.MVError) {
+	id, err = us.Repo.CreateUser(u)
+	if err != nil {
+		us.logUserError(err)
+		return 0, err
 	}
-	id, errCode, err = us.Repo.CreateUser(u)
-	return id, errCode, err
+
+	return id, err
 }
 
 // UpdateUser updates an existing user in mySQL
-func (us *UserSvc) UpdateUser(user domain.User) (mverr.ErrCode, error) {
-	return us.Repo.UpdateUser(user)
+func (us *UserSvc) UpdateUser(user domain.User) *mverr.MVError {
+	err := us.Repo.UpdateUser(user)
+	if err != nil {
+		us.logUserError(err)
+		return err
+	}
+
+	return nil
 }
 
 // DeleteUser deletes an existing user from mySQL
-func (us *UserSvc) DeleteUser(id int) (mverr.ErrCode, error) {
-	return us.Repo.DeleteUser(id)
-}
-
-func (us *UserSvc) logUserError(e error) {
-	var eu mverr.UserRqstError
-
-	if errors.As(e, &eu) {
-		us.Logger.WithFields(log.Fields{
-			logging.ErrorCode:   eu.ErrCode,
-			logging.ErrorDetail: eu.Error(),
-		}).Error(eu.ErrMsg)
-
-		return
+func (us *UserSvc) DeleteUser(id int) *mverr.MVError {
+	err := us.Repo.DeleteUser(id)
+	if err != nil {
+		us.logUserError(err)
+		return err
 	}
 
+	return nil
+}
+
+func (us *UserSvc) logUserError(e *mverr.MVError) {
 	us.Logger.WithFields(log.Fields{
-		logging.ErrorCode:   mverr.UnknownErrorCode,
-		logging.ErrorDetail: e.Error(),
-	}).Error("unexpected error occurred in UserSvc, check ErrorDetail field for more info")
+		logging.ErrorCode:     e.ErrCode,
+		logging.ErrorDetail:   e.WrappedErr,
+		logging.MessageDetail: e.ErrMsg,
+	}).Error(e.ErrDetail)
+
 }

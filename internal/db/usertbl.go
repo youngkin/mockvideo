@@ -6,11 +6,11 @@ package db
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/youngkin/mockvideo/internal/domain"
 	mverr "github.com/youngkin/mockvideo/internal/errors"
@@ -67,18 +67,17 @@ func NewTable(db *sql.DB) (*Table, error) {
 }
 
 // GetUsers will return all users known to the application
-func (ut *Table) GetUsers() (*domain.Users, error) {
+func (ut *Table) GetUsers() (*domain.Users, *mverr.MVError) {
 	start := time.Now()
 
 	results, err := ut.db.Query(getAllUsersQuery)
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, readAll, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return nil, mverr.UserRqstError{
-			MVError: mverr.MVError{
-				ErrCode:    mverr.UserRqstErrorCode,
-				ErrMsg:     mverr.UserRqstErrorMsg,
-				ErrDetail:  "error querying users",
-				WrappedErr: err}}
+		return nil, &mverr.MVError{
+			ErrCode:    mverr.UserRqstErrorCode,
+			ErrMsg:     mverr.UserRqstErrorMsg,
+			ErrDetail:  "error querying users",
+			WrappedErr: err}
 	}
 
 	us := domain.Users{}
@@ -92,12 +91,11 @@ func (ut *Table) GetUsers() (*domain.Users, error) {
 			&u.Role)
 		if err != nil {
 			DBRqstDur.WithLabelValues(userTbl, readAll, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-			return nil, mverr.UserRqstError{
-				MVError: mverr.MVError{
-					ErrCode:    mverr.UserRqstErrorCode,
-					ErrMsg:     mverr.UserRqstErrorMsg,
-					ErrDetail:  "error scanning users query result set",
-					WrappedErr: err}}
+			return nil, &mverr.MVError{
+				ErrCode:    mverr.UserRqstErrorCode,
+				ErrMsg:     mverr.UserRqstErrorMsg,
+				ErrDetail:  "error scanning users query result set",
+				WrappedErr: err}
 		}
 
 		us.Users = append(us.Users, &u)
@@ -110,7 +108,7 @@ func (ut *Table) GetUsers() (*domain.Users, error) {
 
 // GetUser will return the user identified by 'id' or a nil user if there
 // wasn't a matching user.
-func (ut *Table) GetUser(id int) (*domain.User, error) {
+func (ut *Table) GetUser(id int) (*domain.User, *mverr.MVError) {
 	start := time.Now()
 
 	row := ut.db.QueryRow(getUserQuery, id)
@@ -122,12 +120,11 @@ func (ut *Table) GetUser(id int) (*domain.User, error) {
 		&user.Role)
 	if err != nil && err != sql.ErrNoRows {
 		DBRqstDur.WithLabelValues(userTbl, readOne, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return nil, mverr.UserRqstError{
-			MVError: mverr.MVError{
-				ErrCode:    mverr.UserRqstErrorCode,
-				ErrMsg:     mverr.UserRqstErrorMsg,
-				ErrDetail:  "error scanning user row",
-				WrappedErr: err}}
+		return nil, &mverr.MVError{
+			ErrCode:    mverr.UserRqstErrorCode,
+			ErrMsg:     mverr.UserRqstErrorMsg,
+			ErrDetail:  "error scanning user row",
+			WrappedErr: err}
 	}
 	if err == sql.ErrNoRows {
 		DBRqstDur.WithLabelValues(userTbl, readOne, ok).Observe(float64(time.Since(start)) / float64(time.Second))
@@ -139,13 +136,17 @@ func (ut *Table) GetUser(id int) (*domain.User, error) {
 }
 
 // CreateUser takes the provided user data, inserts it into the db, and returns the newly created user ID.
-func (ut *Table) CreateUser(u domain.User) (int, mverr.ErrCode, error) {
+func (ut *Table) CreateUser(u domain.User) (int, *mverr.MVError) {
 	start := time.Now()
 
 	err := u.ValidateUser()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, create, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return 0, mverr.UserValidationErrorCode, errors.Annotate(err, "User validation failure")
+		return 0, &mverr.MVError{
+			ErrCode:    mverr.UserValidationErrorCode,
+			ErrMsg:     mverr.UserValidationErrorMsg,
+			ErrDetail:  err.Error(),
+			WrappedErr: err}
 	}
 
 	r, err := ut.db.Exec(insertUserStmt, u.AccountID, u.Name, u.EMail, u.Role, u.Password)
@@ -154,33 +155,49 @@ func (ut *Table) CreateUser(u domain.User) (int, mverr.ErrCode, error) {
 		if ok {
 			if errDetail.Number == mverr.MySQLDupInsertErrorCode {
 				DBRqstDur.WithLabelValues(userTbl, create, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-				return 0, mverr.DBInsertDuplicateUserErrorCode, errors.Annotate(err, fmt.Sprintf("error inserting duplicate user into the database: %+v, possible duplicate email address", u))
+				return 0, &mverr.MVError{
+					ErrCode:    mverr.DBInsertDuplicateUserErrorCode,
+					ErrMsg:     mverr.DBInsertDuplicateUserErrorMsg,
+					ErrDetail:  err.Error(),
+					WrappedErr: err}
 			}
 		} else {
 			DBRqstDur.WithLabelValues(userTbl, create, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-			return 0, mverr.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error inserting user %+v into DB", u))
+			return 0, &mverr.MVError{
+				ErrCode:    mverr.DBUpSertErrorCode,
+				ErrMsg:     mverr.DBUpSertErrorMsg,
+				ErrDetail:  fmt.Sprintf("error inserting user %+v into DB", u),
+				WrappedErr: err}
 		}
 	}
 	id, err := r.LastInsertId()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, create, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return 0, mverr.DBUpSertErrorCode, errors.Annotate(err, "error getting user ID")
+		return 0, &mverr.MVError{
+			ErrCode:    mverr.DBUpSertErrorCode,
+			ErrMsg:     mverr.DBUpSertErrorMsg,
+			ErrDetail:  fmt.Sprint("unable to obtain inserted user's assigned ID"),
+			WrappedErr: err}
 	}
 
 	// TODO: Consider not casting 'id' to an int. Depending on where this code runs, an 'int'
 	// TODO: is either 32 or 64 bytes, so this cast *could* be OK
 	DBRqstDur.WithLabelValues(userTbl, create, ok).Observe(float64(time.Since(start)) / float64(time.Second))
-	return int(id), mverr.UnknownErrorCode, nil
+	return int(id), nil
 }
 
 // UpdateUser takes the provided user data, inserts it into the db, and returns the newly created user ID
-func (ut *Table) UpdateUser(u domain.User) (mverr.ErrCode, error) {
+func (ut *Table) UpdateUser(u domain.User) *mverr.MVError {
 	start := time.Now()
 
 	err := u.ValidateUser()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return mverr.DBUpSertErrorCode, errors.Annotate(err, "User validation failure")
+		return &mverr.MVError{
+			ErrCode:    mverr.UserValidationErrorCode,
+			ErrMsg:     mverr.UserValidationErrorMsg,
+			ErrDetail:  err.Error(),
+			WrappedErr: err}
 	}
 
 	// This entire db.Begin/tx.Rollback/Commit seem awkward to me. But it's here because
@@ -188,7 +205,11 @@ func (ut *Table) UpdateUser(u domain.User) (mverr.ErrCode, error) {
 	tx, err := ut.db.Begin()
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return mverr.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error beginning transaction for user: %+v", u))
+		return &mverr.MVError{
+			ErrCode:    mverr.DBUpSertErrorCode,
+			ErrMsg:     mverr.DBUpSertErrorMsg,
+			ErrDetail:  fmt.Sprintf("error beginning transaction for user %+v", u),
+			WrappedErr: err}
 	}
 	r := ut.db.QueryRow(getUserQuery, u.ID)
 	userRow := domain.User{}
@@ -201,36 +222,52 @@ func (ut *Table) UpdateUser(u domain.User) (mverr.ErrCode, error) {
 	if err != nil && err == sql.ErrNoRows {
 		tx.Rollback()
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return mverr.DBInvalidRequestCode, errors.New(fmt.Sprintf("error, attempting to update non-existent user, user.ID %d", u.ID))
+		return &mverr.MVError{
+			ErrCode:    mverr.DBNoUserErrorCode,
+			ErrMsg:     mverr.DBNoUserErrorMsg,
+			ErrDetail:  fmt.Sprintf("error, attempting to update non-existent user, user.ID %d", u.ID),
+			WrappedErr: err}
 	}
 	if err != nil && err != sql.ErrNoRows {
 		tx.Rollback()
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return mverr.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error updating user in the database: %+v", u))
+		return &mverr.MVError{
+			ErrCode:    mverr.DBUpSertErrorCode,
+			ErrMsg:     mverr.DBUpSertErrorMsg,
+			ErrDetail:  fmt.Sprintf("error finding user to update: %+v", u),
+			WrappedErr: err}
 	}
 
 	_, err = ut.db.Exec(updateUserStmt, u.ID, u.AccountID, u.Name, u.EMail, u.Role, u.Password, u.ID)
 	if err != nil {
 		tx.Rollback()
 		DBRqstDur.WithLabelValues(userTbl, update, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return mverr.DBUpSertErrorCode, errors.Annotate(err, fmt.Sprintf("error updating user in the database: %+v", u))
+		return &mverr.MVError{
+			ErrCode:    mverr.DBUpSertErrorCode,
+			ErrMsg:     mverr.DBUpSertErrorMsg,
+			ErrDetail:  fmt.Sprintf("error updating user %+v", u),
+			WrappedErr: err}
 	}
 	tx.Commit()
 
 	DBRqstDur.WithLabelValues(userTbl, update, ok).Observe(float64(time.Since(start)) / float64(time.Second))
-	return mverr.UnknownErrorCode, nil
+	return nil
 }
 
 // DeleteUser deletes the user identified by u.id from the database
-func (ut *Table) DeleteUser(id int) (mverr.ErrCode, error) {
+func (ut *Table) DeleteUser(id int) *mverr.MVError {
 	start := time.Now()
 
 	_, err := ut.db.Exec(deleteUserStmt, id)
 	if err != nil {
 		DBRqstDur.WithLabelValues(userTbl, delete, dbErr).Observe(float64(time.Since(start)) / float64(time.Second))
-		return mverr.DBDeleteErrorCode, errors.Annotate(err, "Usesr delete error")
+		return &mverr.MVError{
+			ErrCode:    mverr.DBDeleteErrorCode,
+			ErrMsg:     mverr.DBDeleteErrorMsg,
+			ErrDetail:  fmt.Sprintf("error deleting  user id %d", id),
+			WrappedErr: err}
 	}
 
 	DBRqstDur.WithLabelValues(userTbl, delete, ok).Observe(float64(time.Since(start)) / float64(time.Second))
-	return mverr.UnknownErrorCode, nil
+	return nil
 }
