@@ -30,7 +30,7 @@ type MVError struct {
 	WrappedErr error
 }
 
-func (e MVError) Error() string {
+func (e *MVError) Error() string {
 	return fmt.Sprintf("ErrorCode: %d, ErrMsg: %s, ErrDetail: %s, WrappedErr: %s", e.ErrCode, e.ErrMsg, e.ErrDetail, e.WrappedErr)
 }
 

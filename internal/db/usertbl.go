@@ -158,7 +158,7 @@ func (ut *Table) CreateUser(u domain.User) (int, *mverr.MVError) {
 				return 0, &mverr.MVError{
 					ErrCode:    mverr.DBInsertDuplicateUserErrorCode,
 					ErrMsg:     mverr.DBInsertDuplicateUserErrorMsg,
-					ErrDetail:  err.Error(),
+					ErrDetail:  fmt.Sprintf("error inserting duplicate user into the database: %+v, possible duplicate email address", u),
 					WrappedErr: err}
 			}
 		} else {
