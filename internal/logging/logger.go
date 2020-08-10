@@ -8,7 +8,6 @@ import (
 	"os"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/internal/constants"
 )
 
 var logger *log.Entry
@@ -28,7 +27,7 @@ func init() {
 	}
 
 	logger = log.WithFields(log.Fields{
-		constants.HostName: hostName,
+		HostName: hostName,
 	})
 
 }

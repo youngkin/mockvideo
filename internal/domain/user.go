@@ -7,7 +7,7 @@ package domain
 import (
 	"fmt"
 
-	"github.com/youngkin/mockvideo/internal/constants"
+	mverr "github.com/youngkin/mockvideo/internal/errors"
 )
 
 // Role indicates what role a User can take regarding account actions (e.g., add a service)
@@ -27,11 +27,11 @@ const (
 // TODO: Consider embedding 'ErrCode' inside an application specific error type. This would
 // TODO: likely require rethinking how errors are wrapped currently using 'errors.Annotate'
 type UserRepository interface {
-	GetUsers() (*Users, error)
-	GetUser(id int) (*User, error)
-	CreateUser(user User) (id int, errCode constants.ErrCode, err error)
-	UpdateUser(user User) (constants.ErrCode, error)
-	DeleteUser(id int) (constants.ErrCode, error)
+	GetUsers() (*Users, *mverr.MVError)
+	GetUser(id int) (*User, *mverr.MVError)
+	CreateUser(user User) (id int, err *mverr.MVError)
+	UpdateUser(user User) *mverr.MVError
+	DeleteUser(id int) *mverr.MVError
 }
 
 // User represents the data about a user

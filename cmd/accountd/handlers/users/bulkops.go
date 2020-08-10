@@ -9,16 +9,16 @@ import (
 	"net/http"
 
 	"github.com/youngkin/mockvideo/cmd/accountd/services"
-	"github.com/youngkin/mockvideo/internal/constants"
 	"github.com/youngkin/mockvideo/internal/domain"
+	"github.com/youngkin/mockvideo/internal/errors"
 )
 
 // Response contains the results of in individual User request
 type Response struct {
-	HTTPStatus int               `json:"httpstatus"`
-	ErrMsg     string            `json:"errmsg"`
-	ErrReason  constants.ErrCode `json:"-"`
-	User       domain.User       `json:"user,omitempty"`
+	HTTPStatus int            `json:"httpstatus"`
+	ErrMsg     string         `json:"errmsg"`
+	ErrReason  errors.ErrCode `json:"-"`
+	User       domain.User    `json:"user,omitempty"`
 }
 
 // BulkResponse contains the results of in bulk  User request
@@ -118,18 +118,16 @@ func (bp BulkProcesor) process(rqst Request) {
 	}
 	defer releaseResource()
 
-	r := Response{
-		ErrMsg:    "",
-		ErrReason: constants.NoErrorCode,
-	}
+	r := Response{}
+
 	switch rqst.method {
 	case http.MethodPost:
 		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
-		_, errCode, err := rqst.userSvc.CreateUser(rqst.user)
+		_, err := rqst.userSvc.CreateUser(rqst.user)
 		if err != nil {
 			r = Response{
-				ErrMsg:     err.Error(),
-				ErrReason:  errCode,
+				ErrMsg:     err.ErrMsg,
+				ErrReason:  err.ErrCode,
 				HTTPStatus: http.StatusBadRequest,
 				User:       rqst.user,
 			}
@@ -139,11 +137,11 @@ func (bp BulkProcesor) process(rqst Request) {
 		}
 	case http.MethodPut:
 		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
-		errCode, err := rqst.userSvc.UpdateUser(rqst.user)
+		err := rqst.userSvc.UpdateUser(rqst.user)
 		if err != nil {
 			r = Response{
-				ErrMsg:     err.Error(),
-				ErrReason:  errCode,
+				ErrMsg:     err.ErrMsg,
+				ErrReason:  err.ErrCode,
 				HTTPStatus: http.StatusBadRequest,
 				User:       rqst.user,
 			}
@@ -155,7 +153,7 @@ func (bp BulkProcesor) process(rqst Request) {
 		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor received unsupported HTTP method request: %v+", rqst)
 		r = Response{
 			ErrMsg:     fmt.Sprintf("Bulk %s HTTP method not supported", rqst.method),
-			ErrReason:  constants.UserRqstErrorCode,
+			ErrReason:  errors.UserRqstErrorCode,
 			HTTPStatus: http.StatusBadRequest,
 			User:       rqst.user,
 		}

@@ -24,9 +24,9 @@ import (
 	"github.com/youngkin/mockvideo/cmd/accountd/handlers/users"
 	"github.com/youngkin/mockvideo/cmd/accountd/internal/config"
 	"github.com/youngkin/mockvideo/cmd/accountd/services"
-	"github.com/youngkin/mockvideo/internal/constants"
 	"github.com/youngkin/mockvideo/internal/db"
 	user "github.com/youngkin/mockvideo/internal/db"
+	mverr "github.com/youngkin/mockvideo/internal/errors"
 	"github.com/youngkin/mockvideo/internal/logging"
 
 	log "github.com/sirupsen/logrus"
@@ -73,7 +73,7 @@ func main() {
 		"specifies the location of the accountd secrets")
 	flag.Parse()
 
-	logger := logging.GetLogger().WithField(constants.Application, constants.User)
+	logger := logging.GetLogger().WithField(logging.Application, logging.User)
 
 	//
 	// Get configuration
@@ -81,30 +81,30 @@ func main() {
 	configFile, err := os.Open(*configFileName)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.ConfigFileName: *configFileName,
-			constants.ErrorCode:      constants.UnableToOpenConfigErrorCode,
-			constants.ErrorDetail:    err.Error(),
-		}).Fatal(constants.UnableToOpenConfig)
+			logging.ConfigFileName: *configFileName,
+			logging.ErrorCode:      mverr.UnableToOpenConfigErrorCode,
+			logging.ErrorDetail:    err.Error(),
+		}).Fatal(mverr.UnableToOpenConfigMsg)
 		os.Exit(1)
 	}
 
 	configs, err := config.LoadConfig(configFile)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.ConfigFileName: *configFileName,
-			constants.ErrorCode:      constants.UnableToLoadConfigErrorCode,
-			constants.ErrorDetail:    err.Error(),
-		}).Fatal(constants.UnableToLoadConfig)
+			logging.ConfigFileName: *configFileName,
+			logging.ErrorCode:      mverr.UnableToLoadConfigErrorCode,
+			logging.ErrorDetail:    err.Error(),
+		}).Fatal(mverr.UnableToLoadConfigMsg)
 		os.Exit(1)
 	}
 
 	secrets, err := config.LoadSecrets(*secretsDir)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.ConfigFileName: *secretsDir,
-			constants.ErrorCode:      constants.UnableToLoadSecretsErrorCode,
-			constants.ErrorDetail:    err.Error(),
-		}).Fatal(constants.UnableToLoadSecrets)
+			logging.ConfigFileName: *secretsDir,
+			logging.ErrorCode:      mverr.UnableToLoadSecretsErrorCode,
+			logging.ErrorDetail:    err.Error(),
+		}).Fatal(mverr.UnableToLoadSecretsMsg)
 		os.Exit(1)
 	}
 
@@ -121,8 +121,8 @@ func main() {
 	}
 
 	logger.WithFields(log.Fields{
-		constants.ConfigFileName: *configFileName,
-		constants.SecretsDirName: *secretsDir,
+		logging.ConfigFileName: *configFileName,
+		logging.SecretsDirName: *secretsDir,
 	}).Info("accountd service starting")
 
 	//
@@ -131,21 +131,21 @@ func main() {
 	connStr, err := getDBConnectionStr(configs, secrets)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.UnableToGetDBConnStrErrorCode,
-			constants.ErrorDetail: err.Error(),
-		}).Fatal(constants.UnableToGetDBConnStr)
+			logging.ErrorCode:   mverr.UnableToGetDBConnStrErrorCode,
+			logging.ErrorDetail: err.Error(),
+		}).Fatal(mverr.UnableToGetDBConnStrMsg)
 		os.Exit(1)
 	}
 
 	db, err := sql.Open("mysql", connStr)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.UnableToOpenDBConnErrorCode,
-			constants.ErrorDetail: err.Error(),
-			constants.DBHost:      configs["dbHost"],
-			constants.DBPort:      configs["dbPort"],
-			constants.DBName:      configs["dbName"],
-		}).Fatal(constants.UnableToOpenDBConn)
+			logging.ErrorCode:   mverr.UnableToOpenDBConnErrorCode,
+			logging.ErrorDetail: err.Error(),
+			logging.DBHost:      configs["dbHost"],
+			logging.DBPort:      configs["dbPort"],
+			logging.DBName:      configs["dbName"],
+		}).Fatal(mverr.UnableToOpenDBConnMsg)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -153,12 +153,12 @@ func main() {
 	err = db.Ping()
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.UnableToOpenDBConnErrorCode,
-			constants.ErrorDetail: err.Error(),
-			constants.DBHost:      configs["dbHost"],
-			constants.DBPort:      configs["dbPort"],
-			constants.DBName:      configs["dbName"],
-		}).Fatal(constants.UnableToOpenDBConn)
+			logging.ErrorCode:   mverr.UnableToOpenDBConnErrorCode,
+			logging.ErrorDetail: err.Error(),
+			logging.DBHost:      configs["dbHost"],
+			logging.DBPort:      configs["dbPort"],
+			logging.DBName:      configs["dbName"],
+		}).Fatal(mverr.UnableToOpenDBConnMsg)
 		os.Exit(1)
 	}
 
@@ -179,17 +179,17 @@ func main() {
 	userTable, err := user.NewTable(db)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.UnableToCreateRepositoryErrorCode,
-			constants.ErrorDetail: "unable to create a user.Table instance",
-		}).Fatal(constants.UnableToCreateRepository)
+			logging.ErrorCode:   mverr.UnableToCreateRepositoryErrorCode,
+			logging.ErrorDetail: "unable to create a user.Table instance",
+		}).Fatal(mverr.UnableToCreateRepositoryMsg)
 		os.Exit(1)
 	}
 	userSvc, err := services.NewUserSvc(userTable, logger)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.UnableToCreateUseCaseErrorCode,
-			constants.ErrorDetail: "unable to create a services.UserUseCase instance",
-		}).Fatal(constants.UnableToCreateUseCase)
+			logging.ErrorCode:   mverr.UnableToCreateUseCaseErrorCode,
+			logging.ErrorDetail: "unable to create a services.UserUseCase instance",
+		}).Fatal(mverr.UnableToCreateUseCaseMsg)
 		os.Exit(1)
 	}
 
@@ -199,12 +199,12 @@ func main() {
 	usersHandler, err := users.NewUserHandler(userSvc, logger, maxBulkOps)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.UnableToCreateHTTPHandlerErrorCode,
-			constants.ErrorDetail: err.Error(),
-			constants.DBHost:      configs["dbHost"],
-			constants.DBPort:      configs["dbPort"],
-			constants.DBName:      configs["dbName"],
-		}).Fatal(constants.UnableToCreateHTTPHandler)
+			logging.ErrorCode:   mverr.UnableToCreateHTTPHandlerErrorCode,
+			logging.ErrorDetail: err.Error(),
+			logging.DBHost:      configs["dbHost"],
+			logging.DBPort:      configs["dbPort"],
+			logging.DBName:      configs["dbName"],
+		}).Fatal(mverr.UnableToCreateHTTPHandlerMsg)
 		os.Exit(1)
 	}
 
@@ -217,11 +217,11 @@ func main() {
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		logger.WithFields(log.Fields{
-			constants.ErrorCode:   constants.MalformedURLErrorCode,
-			constants.ErrorDetail: errors.New(constants.MalformedURL),
+			logging.ErrorCode:   mverr.MalformedURLErrorCode,
+			logging.ErrorDetail: errors.New(mverr.MalformedURLMsg),
 		}).Info("handling request")
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(constants.MalformedURL))
+		w.Write([]byte(mverr.MalformedURLMsg))
 	})
 
 	port, ok := configs["port"]
@@ -240,13 +240,13 @@ func main() {
 
 	go func() {
 		logger.WithFields(log.Fields{
-			constants.ConfigFileName: *configFileName,
-			constants.SecretsDirName: *secretsDir,
-			constants.Port:           port,
-			constants.LogLevel:       log.GetLevel().String(),
-			constants.DBHost:         configs["dbHost"],
-			constants.DBPort:         configs["dbPort"],
-			constants.DBName:         configs["dbName"],
+			logging.ConfigFileName: *configFileName,
+			logging.SecretsDirName: *secretsDir,
+			logging.Port:           port,
+			logging.LogLevel:       log.GetLevel().String(),
+			logging.DBHost:         configs["dbHost"],
+			logging.DBPort:         configs["dbPort"],
+			logging.DBName:         configs["dbName"],
 		}).Info("accountd service running")
 
 		if err := s.ListenAndServe(); err != http.ErrServerClosed {
