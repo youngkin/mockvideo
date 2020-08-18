@@ -34,8 +34,11 @@ const (
 	Port string = "Port"
 
 	RemoteAddr     string = "RemoteAddr"
+	RPCFunc        string = "RPCFunc"
 	ServiceName    string = "ServiceName"
 	SecretsDirName string = "SecretsDirName"
+
+	UserID string = "UserID"
 
 	TestName string = "TestName"
 )
