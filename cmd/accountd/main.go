@@ -390,7 +390,7 @@ func startGRPCServer(userSvc *services.UserSvc, logger *log.Entry, maxBulkOps in
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterUserServer(s, usersServer)
+	pb.RegisterUserServerServer(s, usersServer)
 
 	go func() {
 		defer conn.Close()

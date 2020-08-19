@@ -9,9 +9,9 @@ import (
 	pb "github.com/youngkin/mockvideo/pkg/accountd"
 )
 
-// UserToProtobuf converts a User domain object into a protobuf UserResponse
-func UserToProtobuf(u *domain.User) *pb.UserResponse {
-	return &pb.UserResponse{
+// UserToProtobuf converts a User domain object into a protobuf User
+func UserToProtobuf(u *domain.User) *pb.User {
+	return &pb.User{
 		AccountID: int64(u.AccountID),
 		HREF:      u.HREF,
 		ID:        int64(u.ID),
@@ -21,13 +21,26 @@ func UserToProtobuf(u *domain.User) *pb.UserResponse {
 	}
 }
 
-// UserToProtobuf converts a Users domain object into a protobuf UsersResponse
-func UsersToProtobuf(us *domain.Users) *pb.UsersResponse {
-	pbUsers := pb.UsersResponse{}
+// UserToProtobuf converts a Users domain object into a protobuf Users
+func UsersToProtobuf(us *domain.Users) *pb.Users {
+	pbUsers := pb.Users{}
 
 	for _, u := range us.Users {
 		ub := UserToProtobuf(u)
 		pbUsers.Users = append(pbUsers.Users, ub)
 	}
 	return &pbUsers
+}
+
+// ProtobufToUser converts a pb.User to a domwin.User
+func ProtobufToUser(ub *pb.User) *domain.User {
+	return &domain.User{
+		AccountID: int(ub.AccountID),
+		HREF:      ub.HREF,
+		ID:        int(ub.GetID()),
+		Name:      ub.Name,
+		EMail:     ub.GetEMail(),
+		Role:      domain.Role(ub.GetRole()),
+		Password:  ub.GetPassword(),
+	}
 }

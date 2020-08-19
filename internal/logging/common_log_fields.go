@@ -38,7 +38,8 @@ const (
 	ServiceName    string = "ServiceName"
 	SecretsDirName string = "SecretsDirName"
 
-	UserID string = "UserID"
+	UserID    string = "UserID"
+	UserEMail string = "UserEMail"
 
 	TestName string = "TestName"
 )
