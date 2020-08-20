@@ -54,6 +54,8 @@ const (
 
 	// InvalidInsertErrorMsg indicates that an unexpected User.ID was detected in an insert request
 	InvalidInsertErrorMsg = "Unexpected User.ID in insert request"
+	// InvalidProtocolTypeErrorMsg indicates that an invalid protocol was specified (e.g., not 'http' or 'grpc')
+	InvalidProtocolTypeErrorMsg = "Invalid protocol type specified at application startup, must be 'http' or 'grpc'"
 
 	// JSONDecodingErrorMsg indicates that there was a problem decoding JSON input
 	JSONDecodingErrorMsg = "JSON Decoding Error, possibly malformed JSON object"
@@ -68,10 +70,12 @@ const (
 	RqstParsingErrorMsg = "Request parsing error, possible malformed JSON"
 
 	// UnableToCreateHTTPHandlerMsg indicates that there was a problem creating an http handler
-	UnableToCreateHTTPHandlerMsg = "Unable to create HTTP handler"
+	UnableToCreateHTTPHandlerMsg = "Unable to create HTTP service endpoint"
 	// UnableToCreateRepositoryMsg indicates that there was a problem creating Repository instance referencing
 	// storage for an application domain type
 	UnableToCreateRepositoryMsg = "Unable to create domain object repository"
+	// UnableToCreateRPCServerErrorMsg indicates there was a problem creating a gRPC endpoint
+	UnableToCreateRPCServerErrorMsg = "Unable to create gRPC service endpoint"
 	// UnableToCreateUseCaseMsg indicates that there was a problem creating an application use case
 	UnableToCreateUseCaseMsg = "Unable to create application use case"
 	// UnableToGetConfigMsg indicates there was a problem obtaining the application configuration
@@ -139,6 +143,8 @@ const (
 
 	// InvalidInsertErrorCode is the error code associated with InvalidInsertError
 	InvalidInsertErrorCode
+	// InvalidProtocolTypeErrorCode indicates that an invalid protocol was specified (e.g., not 'html' or 'grpc')
+	InvalidProtocolTypeErrorCode
 
 	// JSONDecodingErrorCode indicates that there was a problem decoding JSON input
 	JSONDecodingErrorCode
@@ -156,6 +162,8 @@ const (
 	// UnableToCreateRepositoryErrorCode indicates that there was a problem creating Repository instance referencing
 	// storage for an application domain type
 	UnableToCreateRepositoryErrorCode
+	// UnableToCreateRPCServerErrorCode is the error code associated with UnableToCreateRPCServerErrorMsg
+	UnableToCreateRPCServerErrorCode
 	// UnableToCreateUseCaseErrorCode is the error code associated with UnableToCreateUseCase
 	UnableToCreateUseCaseErrorCode
 	// UnableToGetConfigErrorCode is the error code associated with UnableToGetConfig

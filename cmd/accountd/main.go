@@ -8,6 +8,8 @@ import (
 	"context"
 	"database/sql"
 	"flag"
+	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -20,14 +22,17 @@ import (
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/youngkin/mockvideo/cmd/accountd/handlers"
-	"github.com/youngkin/mockvideo/cmd/accountd/handlers/users"
+	grpcuser "github.com/youngkin/mockvideo/cmd/accountd/grpc/users"
+	handlers "github.com/youngkin/mockvideo/cmd/accountd/http"
+	"github.com/youngkin/mockvideo/cmd/accountd/http/users"
 	"github.com/youngkin/mockvideo/cmd/accountd/internal/config"
 	"github.com/youngkin/mockvideo/cmd/accountd/services"
 	"github.com/youngkin/mockvideo/internal/db"
-	user "github.com/youngkin/mockvideo/internal/db"
+	userdb "github.com/youngkin/mockvideo/internal/db"
 	mverr "github.com/youngkin/mockvideo/internal/errors"
 	"github.com/youngkin/mockvideo/internal/logging"
+	pb "github.com/youngkin/mockvideo/pkg/accountd"
+	"google.golang.org/grpc"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -71,6 +76,7 @@ func main() {
 	secretsDir := flag.String("secretsDir",
 		"/opt/mockvideo/accountd/secrets",
 		"specifies the location of the accountd secrets")
+	protocolType := flag.String("protocol", "http", "specifies whether the service will use http or grpc. Options are 'http' or 'grpc'.")
 	flag.Parse()
 
 	logger := logging.GetLogger().WithField(logging.Application, logging.User)
@@ -145,7 +151,7 @@ func main() {
 			logging.DBHost:      configs["dbHost"],
 			logging.DBPort:      configs["dbPort"],
 			logging.DBName:      configs["dbName"],
-		}).Fatal(mverr.UnableToOpenDBConnMsg)
+		}).Fatal("OPEN: " + mverr.UnableToOpenDBConnMsg)
 		os.Exit(1)
 	}
 	defer db.Close()
@@ -158,7 +164,7 @@ func main() {
 			logging.DBHost:      configs["dbHost"],
 			logging.DBPort:      configs["dbPort"],
 			logging.DBName:      configs["dbName"],
-		}).Fatal(mverr.UnableToOpenDBConnMsg)
+		}).Fatal("PING: " + mverr.UnableToOpenDBConnMsg)
 		os.Exit(1)
 	}
 
@@ -176,11 +182,11 @@ func main() {
 	//
 	// Setup Repositories and UseCases
 	//
-	userTable, err := user.NewTable(db)
+	userTable, err := userdb.NewTable(db)
 	if err != nil {
 		logger.WithFields(log.Fields{
 			logging.ErrorCode:   mverr.UnableToCreateRepositoryErrorCode,
-			logging.ErrorDetail: "unable to create a user.Table instance",
+			logging.ErrorDetail: "unable to create a userdb.Table instance",
 		}).Fatal(mverr.UnableToCreateRepositoryMsg)
 		os.Exit(1)
 	}
@@ -196,34 +202,6 @@ func main() {
 	//
 	// Setup endpoints and start service
 	//
-	usersHandler, err := users.NewUserHandler(userSvc, logger, maxBulkOps)
-	if err != nil {
-		logger.WithFields(log.Fields{
-			logging.ErrorCode:   mverr.UnableToCreateHTTPHandlerErrorCode,
-			logging.ErrorDetail: err.Error(),
-			logging.DBHost:      configs["dbHost"],
-			logging.DBPort:      configs["dbPort"],
-			logging.DBName:      configs["dbName"],
-		}).Fatal(mverr.UnableToCreateHTTPHandlerMsg)
-		os.Exit(1)
-	}
-
-	healthHandler := http.HandlerFunc(handlers.HealthFunc)
-
-	mux := http.NewServeMux()
-	mux.Handle("/users", usersHandler)  // Desired to prevent redirects. Can remove if redirects for '/users/' are OK
-	mux.Handle("/users/", usersHandler) // Required to properly route requests to '/users/{id}. Don't understand why the above route isn't sufficient
-	mux.Handle("/accountdhealth", healthHandler)
-	mux.Handle("/metrics", promhttp.Handler())
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		logger.WithFields(log.Fields{
-			logging.ErrorCode:   mverr.MalformedURLErrorCode,
-			logging.ErrorDetail: errors.New(mverr.MalformedURLMsg),
-		}).Info("handling request")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(mverr.MalformedURLMsg))
-	})
-
 	port, ok := configs["port"]
 	if !ok {
 		logger.Info("port configuration unavailable (configs[port]), defaulting to 5000")
@@ -231,14 +209,16 @@ func main() {
 	}
 	port = ":" + port
 
-	s := &http.Server{
-		Addr:              port,
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      5 * time.Second,
-	}
-
-	go func() {
+	switch *protocolType {
+	case "http":
+		s, err := startHTTPServer(userSvc, logger, maxBulkOps, port)
+		if err != nil {
+			logger.WithFields(log.Fields{
+				logging.ErrorCode:   mverr.UnableToCreateHTTPHandlerErrorCode,
+				logging.ErrorDetail: err.Error(),
+			}).Fatal(mverr.UnableToCreateHTTPHandlerMsg)
+			os.Exit(1)
+		}
 		logger.WithFields(log.Fields{
 			logging.ConfigFileName: *configFileName,
 			logging.SecretsDirName: *secretsDir,
@@ -247,23 +227,47 @@ func main() {
 			logging.DBHost:         configs["dbHost"],
 			logging.DBPort:         configs["dbPort"],
 			logging.DBName:         configs["dbName"],
-		}).Info("accountd service running")
+		}).Info("accountd HTTP service running")
 
-		if err := s.ListenAndServe(); err != http.ErrServerClosed {
-			logger.Fatal(err)
+		handleTermSignalHTTP(s, logger, 10)
+
+	case "grpc":
+		s, err := startGRPCServer(userSvc, logger, maxBulkOps, port)
+		if err != nil {
+			logger.WithFields(log.Fields{
+				logging.ErrorCode:   mverr.UnableToCreateRPCServerErrorCode,
+				logging.ErrorDetail: err.Error(),
+			}).Fatal(mverr.UnableToCreateRPCServerErrorMsg)
+			os.Exit(1)
 		}
-	}()
+		logger.WithFields(log.Fields{
+			logging.ConfigFileName: *configFileName,
+			logging.SecretsDirName: *secretsDir,
+			logging.Port:           port,
+			logging.LogLevel:       log.GetLevel().String(),
+			logging.DBHost:         configs["dbHost"],
+			logging.DBPort:         configs["dbPort"],
+			logging.DBName:         configs["dbName"],
+		}).Info("accountd gRPC service running")
 
-	handleTermSignal(s, logger, 10)
+		handleTermSignalGRPC(s, logger)
+
+	default:
+		logger.WithFields(log.Fields{
+			logging.ErrorCode:   mverr.InvalidProtocolTypeErrorCode,
+			logging.ErrorDetail: fmt.Sprintf("invalid protocolType, %s, provided", *protocolType),
+		}).Fatal(mverr.InvalidProtocolTypeErrorMsg)
+		os.Exit(1)
+	}
 }
 
 //
 // Helper funcs
 //
 
-// handleTermSignal provides a mechanism to catch SIGTERMs and gracefully
-// shutdown the service.
-func handleTermSignal(s *http.Server, logger *log.Entry, timeout int) {
+// handleTermSignalHTTP provides a mechanism to catch SIGTERMs and gracefully
+// shutdown the HTTP service endpoint.
+func handleTermSignalHTTP(s *http.Server, logger *log.Entry, timeout int) {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
 
@@ -280,6 +284,20 @@ func handleTermSignal(s *http.Server, logger *log.Entry, timeout int) {
 		logger.Info("Server stopped")
 	}
 
+}
+
+// handleTermSignalGRPC provides a mechanism to catch SIGTERMs and gracefully
+// shutdown the gRPC service endpoint.
+func handleTermSignalGRPC(s *grpc.Server, logger *log.Entry) {
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+
+	<-sigs
+
+	logger.Info("Server shutting down")
+
+	s.GracefulStop()
+	logger.Info("Server stopped")
 }
 
 func getDBConnectionStr(configs, secrets map[string]string) (string, error) {
@@ -323,4 +341,65 @@ func getDBConnectionStr(configs, secrets map[string]string) (string, error) {
 	sb.WriteString("?interpolateParams=true")
 
 	return sb.String(), nil
+}
+
+func startHTTPServer(userSvc *services.UserSvc, logger *log.Entry, maxBulkOps int, port string) (*http.Server, error) {
+	usersHandler, err := users.NewUserHandler(userSvc, logger, maxBulkOps)
+	if err != nil {
+		return nil, err
+	}
+
+	healthHandler := http.HandlerFunc(handlers.HealthFunc)
+
+	mux := http.NewServeMux()
+	mux.Handle("/users", usersHandler)  // Desired to prevent redirects. Can remove if redirects for '/users/' are OK
+	mux.Handle("/users/", usersHandler) // Required to properly route requests to '/users/{id}. Don't understand why the above route isn't sufficient
+	mux.Handle("/accountdhealth", healthHandler)
+	mux.Handle("/metrics", promhttp.Handler())
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		logger.WithFields(log.Fields{
+			logging.ErrorCode:   mverr.MalformedURLErrorCode,
+			logging.ErrorDetail: errors.New(mverr.MalformedURLMsg),
+		}).Info("handling request")
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(mverr.MalformedURLMsg))
+	})
+
+	s := &http.Server{
+		Addr:              port,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      5 * time.Second,
+	}
+
+	go func() {
+		if err := s.ListenAndServe(); err != http.ErrServerClosed {
+			// TODO: improve logging (e.g., 'WithFields...')
+			logger.Fatal(err)
+		}
+	}()
+
+	return s, nil
+}
+
+func startGRPCServer(userSvc *services.UserSvc, logger *log.Entry, maxBulkOps int, port string) (*grpc.Server, error) {
+	usersServer, err := grpcuser.NewUserServer(userSvc, logger, maxBulkOps)
+	conn, err := net.Listen("tcp", port)
+	if err != nil {
+		return nil, err
+	}
+
+	s := grpc.NewServer()
+	pb.RegisterUserServerServer(s, usersServer)
+
+	go func() {
+		defer conn.Close()
+
+		if err := s.Serve(conn); err != nil {
+			// TODO: improve logging (e.g., 'WithFields...')
+			logger.Fatal(err)
+		}
+	}()
+
+	return s, nil
 }

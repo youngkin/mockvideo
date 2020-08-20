@@ -4,9 +4,10 @@ This project is related to the blog series [Developing & Deploying Kubernetes Ap
 
 - [Overview](#overview)
 - [API](#api)
-  - [Representation](#representation)
-  - [Resources](#resources)
-  - [Common HTTP status codes](#common-http-status-codes)
+  - [HTTP](#http)
+    - [Resources](#resources)
+    - [Common HTTP status codes](#common-http-status-codes)
+  - [gRPC](#grpc)
 - [Running and testing the application](#running-and-testing-the-application)
   - [Prerequisites](#prerequisites)
   - [Pre-commit check and smoke tests.](#pre-commit-check-and-smoke-tests)
@@ -28,23 +29,24 @@ Currently, the following capabilities have been implemented:
 3. Helm deployments to a Kubernetes cluster
 4. Implementation of an Account microservice. Currently the implemention supports the ability to perform CRUD operations on users associated with any account from a MySQL database. The primary purpose of this initial capability is to demonstrate:
 
-    1.  Application (Go) [package design](https://www.ardanlabs.com/blog/2017/02/package-oriented-design.html)  as promoted by Bill Kennedy at [Arden Labs](https://www.ardanlabs.com).
+    1.  Application (Go) [package design](https://www.ardanlabs.com/blog/2017/02/package-oriented-design.html)  as promoted by Bill Kennedy at [Arden Labs](https://www.ardanlabs.com), [Dave Cheney's SOLID blog](https://dave.cheney.net/2016/08/20/solid-go-design), and indirectly by ["Uncle Bob's" Clean architecture article](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html).
     2.  Application configuration
     3.  Logging
     4.  Database (MySQL) access
-    5.  Unit testing, including HTTP server testing and the use of 'golden files'.
-    6.  Integration testing, including starting, initializing, and stopping required services like MySQL.
-    7.  Use of Helm/Kubernetes including:
+    5.  Implementation of HTTP and gRPC endpoints
+    6.  Unit testing, including HTTP server testing and the use of 'golden files'.
+    7.  Integration testing, including starting, initializing, and stopping required services like MySQL.
+    8.  Use of Helm/Kubernetes including:
 
         1. Helm deployments and upgrades
         2. Kubernetes Ingress
         3. Kubernetes Secrets and ConfigMaps
         4. Kubernetes volumes
-    8.  Metrics publishing via Prometheus with associated Grafana dashboard(s)
-    9.  CI/CD via Jenkins, this includes deploying building a local Docker image. If testing is successful then the docker image will be tagged and pushed to Docker Hub, the application will be deployed to a Kubernetes cluster, and the current git commit will be tagged with the docker image's tag. The application's GitHub repo is linked to [Travis CI](https://travis-ci.org/github/youngkin/mockvideo) where CI including integration testing is performed. There is no automated CD on Travis, the Kubernetes cluster isn't accessible.
-    10. Best practices for all of the above.
+    9.  Metrics publishing via Prometheus with associated Grafana dashboard(s)
+    10. CI/CD via Jenkins, this includes deploying building a local Docker image. If testing is successful then the docker image will be tagged and pushed to Docker Hub, the application will be deployed to a Kubernetes cluster, and the current git commit will be tagged with the docker image's tag. The application's GitHub repo is linked to [Travis CI](https://travis-ci.org/github/youngkin/mockvideo) where CI including integration testing is performed. There is no automated CD on Travis, the Kubernetes cluster isn't accessible.
+    11. Best practices for all of the above.
 
-The primary code for the Account service is located at [src/cmd/accountd](https://github.com/youngkin/mockvideo/tree/master/src/cmd/accountd) with some supporting code in the [internal package](https://github.com/youngkin/mockvideo/tree/master/src/internal). [Helm](https://github.com/youngkin/mockvideo/tree/master/infrastructure/helm), [kubernetes](https://github.com/youngkin/mockvideo/tree/master/infrastructure/kubernetes), [sql](https://github.com/youngkin/mockvideo/tree/master/infrastructure/sql), and [Grafana dashboards](https://github.com/youngkin/mockvideo/tree/master/infrastructure/dashboards) are located in the [infrastructure directory](https://github.com/youngkin/mockvideo/tree/master/infrastructure).
+The primary code for the Account service is located at [cmd/accountd](https://github.com/youngkin/mockvideo/tree/master/cmd/accountd) with supporting code in the [internal package](https://github.com/youngkin/mockvideo/tree/master/internal), and gRPC interfaces and structs in the [pkg package](https://github.com/youngkin/mockvideo/tree/master/pkg). [Helm](https://github.com/youngkin/mockvideo/tree/master/infrastructure/helm), [kubernetes](https://github.com/youngkin/mockvideo/tree/master/infrastructure/kubernetes), [sql](https://github.com/youngkin/mockvideo/tree/master/infrastructure/sql), and [Grafana dashboards](https://github.com/youngkin/mockvideo/tree/master/infrastructure/dashboards) are located in the [infrastructure directory](https://github.com/youngkin/mockvideo/tree/master/infrastructure).
 
 The next phase will focus on the initial development of a second microservice. The purpose of this will be to demonstrate the use of common code and to also demonstrate the use of Helm in a second microservice. These two goals will validate the package design and the ability to continue to develop and deploy multiple microservices on independent schedules. I'll also be working on finding, or developing, an integration test capability in Go.
 
@@ -60,7 +62,7 @@ This README will be regularly updated as progress continues. I welcome contribut
 
 # API
 
-## Representation
+## HTTP
 
 A User is represented in JSON as follows:
 
@@ -175,7 +177,7 @@ For Bulk requests a JSON body is returned that details the results of each sub-r
 
 The `results` above shows the first user was successfully created. The second request failed with an HTTP status of 400. The `errmsg` indicates that the request was an attempt to create a duplicate user. `overallstatus` is a **409** indicating that the entire request did not complete successfully. Said another way, the overall request was at best partially successful.
 
-## Resources
+### Resources
 
 |Verb   | Resource | Description  | Status  | Status Description |
 |:------|:---------|:-------------|--------:|:-------------------|
@@ -193,13 +195,16 @@ The `results` above shows the first user was successfully created. The second re
 |DELETE |/users/{id}|Deletes the referenced resource|200|user was deleted|
 |       |          |                                |200|user was not found|
 
-## Common HTTP status codes
+### Common HTTP status codes
 
 |Status|Action|
 |-----:|:-----|
 |400|Bad request, don't retry|
 |429|Server busy, can retry after `Retry-After` time has expired (in seconds)|
 |500|Internal server error, can retry, subsequent request _might_ succeed|
+
+## gRPC
+See [pkg](https://github.com/youngkin/mockvideo/tree/master/pkg) for details regarding the gRPC API
 
 # Running and testing the application
 
@@ -264,7 +269,7 @@ This check is handy when making changes to ensure there is no obvious breakage f
 From the project root directory (`mockvideo`) run:
 
 ``` 
-./precheck
+./build.sh test
 ```
 
 This runs `go vet ./...`, `go fmt ./...`, `golint ./...`, and `go test -race ./...`
@@ -283,6 +288,8 @@ Run the script as follows:
 ./smoketestStandalone.sh
 ```
 
+`smoketestStandaloneGRPC.sh` performs the same operations against gRPC endpoints
+
 ## Running the application
 
 Please ensure that all prerequisites have been met as described above.
@@ -293,10 +300,10 @@ Run the following commands from  `<path-to-project>/mockvideo/src/cmd/accountd`:
 
 ```
 go build
-./accountd -configFile "testdata/config/config" -secretsDir "testdata/secrets"
+./accountd -configFile "testdata/config/config" -secretsDir "testdata/secrets" -protocol ["http" | "grpc"]
 ```
 
-Per the configuration, the application will listen on port 5000. This, as well as the MySQL location, username, and password can all be configured using configuration and secrets files referred to by the `-configFile` and `-secretsDir` flags in the command line. `smoketest.sh` provides a good example of this command in action.
+Per the configuration, the application will listen on port 5000. This, as well as the MySQL location, username, and password can all be configured using configuration and secrets files referred to by the `-configFile` and `-secretsDir` flags in the command line. `smoketest.sh` provides a good example of this command in action. The `-protocol` flag is used to direct the service to start HTTP or gRPC endpoints. They are mutually exclusive. `"http"` is the default if `-protocol` isn't specified.
 
 ### Run in a Docker container
 
@@ -334,7 +341,7 @@ Here are the pertinent parts of the above command:
 4. `--debug` is a personal preference  of mine as it shows exactly what Helm is doing. This can be useful if something goes wrong.
 
 
-The next set of commands are all run from `<path-to-project>/mockvideo/src/cmd/accountd`. We're now ready to install the application. Before starting we once again need to verify the configuration matches the deployment environment. The file `helm/values.yaml` should be consulted to ensure the values provided will be acceptable. They should all be fine. If you don't know what you're doing, don't change them. That said, you should look at the `image:`, `respository:` value. The current value, `ryoungkin/accountd`, points to my Docker Hub repository. You'll need to change this if you want to use your own docker image.
+The next set of commands are all run from `<path-to-project>/mockvideo/src/cmd/accountd`. We're now ready to install the application. Before starting we once again need to verify the configuration matches the deployment environment. The file `helm/values.yaml` should be consulted to ensure the values provided will be acceptable. They should all be fine. If you don't know what you're doing, don't change them. That said, you should look at the `image:`, `respository:` value. The current value, `ryoungkin/accountd`, points to my Docker Hub repository. You'll need to change this if you want to use your own docker image. As built, the docker image will expose the HTTP endpoints. The `cmd/accountd/Dockerfile` will have to be modified to expose the gRPC endpoints, i.e., `ENTRYPOINT ["/bin/accountd -protocol grpc"]`
 
 As discussed in the `Prerequisites` section above, you may need to modify the secrets file. This will only be needed if your MySQL database does not have the user `admin`, with the password `admin` defined. See the section on Secrets above for more details if you need to modify this.
 
@@ -367,7 +374,7 @@ helm secrets upgrade --namespace video --set image.tag=0.1.22 --values helm/acco
 
 ## Testing the application
 
-As mentioned above, there is a "pre-commit check", `precheck`, that can be run from the command line at the project root that will run unit tests and things like `go vet`. 
+As mentioned above, `.build.sh test`  can be run from the command line at the project root that will run unit tests and things like `go vet`.
 
 There is another shell script at the project root called `smoketest.sh`. This will initialize a running MySQL database and run various `curl` commands to exercise the application. The difference between this script and `smoketestStandAlone.sh` is that running `smoketest.sh` requires a running MySQL database and a running application. It takes 3 parameters, MySQL address, MySQL port, and the service address. I intend to merge `smoketest.sh` and `smoketestStandalone.sh` in the future.
 

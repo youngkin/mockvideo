@@ -1,0 +1,49 @@
+// Copyright (c) 2020 Richard Youngkin. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+syntax = "proto3";
+package accountd;
+
+import "google/protobuf/empty.proto";
+
+// 'go_package' will place the generated code at this path relative to
+// '--go_out' specification. The generated code will be in the 'accountd' package.
+option go_package = "mockvideo/pkg/accountd";
+
+service UserServer {
+    rpc GetUser (UserID) returns (User) {}
+    rpc GetUsers(google.protobuf.Empty) returns (Users) {}
+    rpc CreateUser(User) returns (UserID) {}
+    rpc UpdateUser(User) returns (google.protobuf.Empty) {} 
+    rpc DeleteUser(UserID) returns (google.protobuf.Empty) {}
+    rpc Health(google.protobuf.Empty) returns (HealthMsg) {}
+}
+
+enum RoleType {
+    PRIMARY = 0;
+    UNRESTRICTED = 1;
+    RESTRICTED = 2;
+}
+    
+message User {
+    int64    AccountID = 1;
+    string   HREF = 2;    
+    int64    ID = 3;   
+    string   Name = 4;   
+    string   EMail = 5;    
+    RoleType Role = 6;
+    string   Password  = 7;
+}
+
+message Users {
+    repeated User users = 1;
+}
+
+message UserID {
+    int64 id = 1;
+}
+
+message HealthMsg {
+    string Status = 1;
+}

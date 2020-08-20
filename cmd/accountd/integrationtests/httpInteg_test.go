@@ -16,6 +16,10 @@ import (
 // TestGetAllUsers attempts to retrieve users from a running accountd server
 // connected to a real database.
 func TestGetUsers(t *testing.T) {
+	if protocol != "http" {
+		return
+	}
+
 	// Takes a while for the accountd container to start
 	time.Sleep(500 * time.Millisecond)
 
@@ -79,6 +83,10 @@ func TestGetUsers(t *testing.T) {
 }
 
 func TestPOSTPUTDELETEUser(t *testing.T) {
+	if protocol != "http" {
+		return
+	}
+
 	client := &http.Client{}
 
 	tcs := []struct {
@@ -237,6 +245,10 @@ func TestPOSTPUTDELETEUser(t *testing.T) {
 // assumption that if the names are present in the response then the operation must
 // have succeeded. As such, the use of golden files isn't applicable.
 func TestBulkPOSTPUTUser(t *testing.T) {
+	if protocol != "http" {
+		return
+	}
+
 	client := &http.Client{}
 	setupDB(15) // reset DB so the tests in this section are deterministic, or at least as they can be
 

@@ -18,18 +18,36 @@ import (
 
 const (
 	dockerFailed = iota + 1
+	buildFailed
 	initDBFailed
+	svcFailedToStart
 )
 
 var (
 	update           = flag.Bool("update", false, "update .golden files")
 	goldenFileDir    = "testdata"
 	goldenFileSuffix = ".golden"
+	protocol         = "http"
 )
 
 func TestMain(m *testing.M) {
 	accountdPID := setup()
 	code := m.Run()
+	if code != 0 {
+		teardown()
+		accountdPID.Signal(syscall.SIGTERM) // accountd is run in the background, need to terminate it
+	}
+
+	// Rerun tests with protocol set to 'grpc'
+	protocol = "grpc"
+	accountdPID.Signal(syscall.SIGTERM)
+	err := initDB()
+	if err != nil {
+		os.Exit(initDBFailed)
+	}
+	accountdPID = startAccountdSvc()
+	code = m.Run()
+
 	teardown()
 	accountdPID.Signal(syscall.SIGTERM) // accountd is run in the background, need to terminate it
 	os.Exit(code)
@@ -37,10 +55,10 @@ func TestMain(m *testing.M) {
 
 func setup() *os.Process {
 	if err := runCmd("cd ..; go build; cd -"); err != nil {
-		os.Exit(dockerFailed)
+		os.Exit(buildFailed)
 	}
 
-	// Do setup here, like launch docker containers for MySQL and the accountd service
+	// Launch docker container for MySQL
 	if _, found := os.LookupEnv("TRAVIS_BUILD_DIR"); !found { // For Travis CI, Travis will start MySQL
 		if err := runCmd("docker run -d --name mysql -p 6603:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes mysql:latest"); err != nil {
 			os.Exit(dockerFailed)
@@ -49,21 +67,25 @@ func setup() *os.Process {
 
 	setupDB(15)
 
+	return startAccountdSvc()
+}
+
+func startAccountdSvc() *os.Process {
 	// Start accountd service
 	// Uncomment to run accoutd in docker. If this is uncommented the next 'dCmd := ...' line will have to
 	// be commented-out.
 	// dCmd := fmt.Sprintf("docker run --name accountd -d -p 5000:5000 -v %s/cmd/accountd/testdata:/opt/mockvideo/accountd local/accountd:latest", getBuildDir())
-	dCmd := `../accountd -configFile ../testdata/config/config -secretsDir ../testdata/secrets`
+	dCmd := fmt.Sprintf(`../accountd -configFile ../testdata/config/config -secretsDir ../testdata/secrets -protocol %s`, protocol)
 	if _, found := os.LookupEnv("TRAVIS_BUILD_DIR"); found { // For Travis CI need to tweak config path
-		dCmd = fmt.Sprintf("%s/accountd -configFile %s/cmd/accountd/testdata/travis/config/config -secretsDir %s/cmd/accountd/testdata/travis/secrets",
-			getBuildDir(), getBuildDir(), getBuildDir())
+		dCmd = fmt.Sprintf("%s/accountd -configFile %s/cmd/accountd/testdata/travis/config/config -secretsDir %s/cmd/accountd/testdata/travis/secrets -protocol %s",
+			getBuildDir(), getBuildDir(), getBuildDir(), protocol)
 	}
-	fmt.Println(dCmd)
+	fmt.Printf("\n\n%s\n\n", dCmd)
 	// Use 'startCmd()' here so accountd will be started in the background. We need this, the main goroutine,
 	// to continue without waiting for accountd to exit (which it won't do until it's sent a SIGTERM)
 	p, err := startCmd(dCmd)
 	if err != nil {
-		os.Exit(dockerFailed)
+		os.Exit(svcFailedToStart)
 	}
 	// Pause while service starts
 	time.Sleep(time.Millisecond * 100)
