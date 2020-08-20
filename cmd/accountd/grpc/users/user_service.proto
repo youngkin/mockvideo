@@ -17,6 +17,7 @@ service UserServer {
     rpc CreateUser(User) returns (UserID) {}
     rpc UpdateUser(User) returns (google.protobuf.Empty) {} 
     rpc DeleteUser(UserID) returns (google.protobuf.Empty) {}
+    rpc Health(google.protobuf.Empty) returns (HealthMsg) {}
 }
 
 enum RoleType {
@@ -41,4 +42,8 @@ message Users {
 
 message UserID {
     int64 id = 1;
+}
+
+message HealthMsg {
+    string Status = 1;
 }

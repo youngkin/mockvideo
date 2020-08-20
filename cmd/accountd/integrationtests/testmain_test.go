@@ -18,7 +18,9 @@ import (
 
 const (
 	dockerFailed = iota + 1
+	buildFailed
 	initDBFailed
+	svcFailedToStart
 )
 
 var (
@@ -37,7 +39,7 @@ func TestMain(m *testing.M) {
 
 func setup() *os.Process {
 	if err := runCmd("cd ..; go build; cd -"); err != nil {
-		os.Exit(dockerFailed)
+		os.Exit(buildFailed)
 	}
 
 	// Do setup here, like launch docker containers for MySQL and the accountd service
@@ -63,7 +65,7 @@ func setup() *os.Process {
 	// to continue without waiting for accountd to exit (which it won't do until it's sent a SIGTERM)
 	p, err := startCmd(dCmd)
 	if err != nil {
-		os.Exit(dockerFailed)
+		os.Exit(svcFailedToStart)
 	}
 	// Pause while service starts
 	time.Sleep(time.Millisecond * 100)

@@ -106,6 +106,13 @@ func (s *UserServer) DeleteUser(ctx context.Context, id *pb.UserID) (*empty.Empt
 	return &empty.Empty{}, nil
 }
 
+// Health is used to determine the status or health of the service
+func (s *UserServer) Health(ctx context.Context, _ *empty.Empty) (*pb.HealthMsg, error) {
+	return &pb.HealthMsg{
+		Status: "gRPC User Service is healthy",
+	}, nil
+}
+
 // NewUserServer returns a properly configured grpc Server
 func NewUserServer(userSvc services.UserSvcInterface, logger *log.Entry, maxBulkOps int) (pb.UserServerServer, error) {
 	if logger == nil {
