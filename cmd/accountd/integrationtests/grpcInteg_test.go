@@ -6,12 +6,13 @@ package integrationtests
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"log"
 	"testing"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/empty"
+	"github.com/youngkin/mockvideo/pkg/accountd"
 	pb "github.com/youngkin/mockvideo/pkg/accountd"
 	"google.golang.org/grpc"
 )
@@ -83,31 +84,39 @@ func TestGetUsersGRPC(t *testing.T) {
 		t.Run(tc.testName, func(t *testing.T) {
 			switch tc.callType {
 			case GETUSERS:
-				actual, err := client.GetUsers(context.Background(), &empty.Empty{})
-				testPreconditions(t, actual, err, tc.shouldPass)
+				resp, err := client.GetUsers(context.Background(), &empty.Empty{})
+				testPreconditions(t, resp, err, tc.shouldPass)
 				if tc.shouldPass {
+					actual, err := json.Marshal(resp)
+					if err != nil {
+						t.Fatalf("error '%s' was not expected while marshaling %v", err, resp)
+					}
 					if *update {
-						updateGoldenFile(t, tc.testName, fmt.Sprintf("%v", actual.Users))
+						updateGoldenFile(t, tc.testName, string(actual))
 					}
 
 					expected := readGoldenFile(t, tc.testName)
 
-					if expected != fmt.Sprintf("%v", actual.Users) {
-						t.Errorf("expected %s, got %s", expected, fmt.Sprintf("%v", actual.Users))
+					if expected != string(actual) {
+						t.Errorf("expected %s, got %s", expected, string(actual))
 					}
 				}
 			case GETUSER:
-				actual, err := client.GetUser(context.Background(), tc.userID)
-				testPreconditions(t, actual, err, tc.shouldPass)
+				resp, err := client.GetUser(context.Background(), tc.userID)
+				testPreconditions(t, resp, err, tc.shouldPass)
 				if tc.shouldPass {
+					actual, err := json.Marshal(resp)
+					if err != nil {
+						t.Fatalf("error '%s' was not expected while marshaling %v", err, resp)
+					}
 					if *update {
-						updateGoldenFile(t, tc.testName, fmt.Sprintf("%s", actual))
+						updateGoldenFile(t, tc.testName, string(actual))
 					}
 
 					expected := readGoldenFile(t, tc.testName)
 
-					if expected != fmt.Sprintf("%s", actual) {
-						t.Errorf("expected %s, got %s", expected, fmt.Sprintf("%s", actual))
+					if expected != string(actual) {
+						t.Errorf("expected %s, got %s", expected, string(actual))
 					}
 				}
 			default:
@@ -117,14 +126,146 @@ func TestGetUsersGRPC(t *testing.T) {
 	}
 }
 
+func TestAddUpdateDeleteUser(t *testing.T) {
+	if protocol != "grpc" {
+		return
+	}
+
+	opts := grpc.WithInsecure()
+	cc, err := grpc.Dial("localhost:5000", opts)
+	if err != nil {
+		log.Fatalf("\terror %s attempting to connect to Accountd gRPC server", err)
+	}
+	defer cc.Close()
+
+	client := pb.NewUserServerClient(cc)
+
+	tcs := []struct {
+		testName   string
+		shouldPass bool
+		callType   CallType
+		expectedID *accountd.UserID
+		rqstData   *accountd.User
+	}{
+		{
+			testName:   "testAddUserSuccess",
+			shouldPass: true,
+			callType:   CREATEUSER,
+			expectedID: &accountd.UserID{Id: 6},
+			rqstData: &accountd.User{
+				AccountID: 1,
+				Name:      "Peter Green",
+				EMail:     "blackmagicwoman@gmail.com",
+				Role:      accountd.RoleType_UNRESTRICTED,
+				Password:  "lasttraintosanantone",
+			},
+		},
+		{
+			testName:   "testAddDuplicateUserFailure", //Dup email address
+			shouldPass: false,
+			callType:   CREATEUSER,
+			expectedID: &accountd.UserID{},
+			rqstData: &accountd.User{
+				AccountID: 1,
+				Name:      "Peter Green",
+				EMail:     "blackmagicwoman@gmail.com",
+				Role:      accountd.RoleType_UNRESTRICTED,
+				Password:  "lasttraintosanantone",
+			},
+		},
+		{
+			testName:   "testUpdateUserSuccess",
+			shouldPass: true,
+			callType:   UPDATEUSER,
+			expectedID: &accountd.UserID{Id: 6},
+			rqstData: &accountd.User{
+				AccountID: 1,
+				ID:        6,
+				Name:      "Fleetwood Mac Peter Green",
+				EMail:     "blackmagicwoman@gmail.com",
+				Role:      accountd.RoleType_UNRESTRICTED,
+				Password:  "lasttraintosanantone",
+			},
+		},
+		{
+			testName:   "testUpdateNonExistingUserSuccess",
+			shouldPass: false,
+			callType:   UPDATEUSER,
+			expectedID: &accountd.UserID{Id: 1000},
+			rqstData: &accountd.User{
+				AccountID: 1,
+				ID:        1000,
+				Name:      "Young Peter Green",
+				EMail:     "blackmagicwoman@gmail.com",
+				Role:      accountd.RoleType_UNRESTRICTED,
+				Password:  "lasttraintosanantone",
+			},
+		},
+		{
+			testName:   "testDeleteUserSuccess",
+			shouldPass: true,
+			callType:   DELETEUSER,
+			expectedID: &accountd.UserID{Id: 6},
+			rqstData:   nil,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.testName, func(t *testing.T) {
+			var id *accountd.UserID
+			var err error
+			switch tc.callType {
+			case CREATEUSER:
+				id, err = client.CreateUser(context.Background(), tc.rqstData)
+			case UPDATEUSER:
+				_, err = client.UpdateUser(context.Background(), tc.rqstData)
+			case DELETEUSER:
+				_, err = client.DeleteUser(context.Background(), tc.expectedID)
+			}
+
+			testPreconditions(t, id, err, tc.shouldPass)
+
+			switch tc.callType {
+			case DELETEUSER:
+				return
+			case UPDATEUSER:
+				id = tc.expectedID
+			}
+
+			if tc.shouldPass {
+				resp, err := client.GetUser(context.Background(), id)
+				if err != nil {
+					t.Fatalf("error '%s' was not expected calling accountd server", err)
+				}
+
+				actual, err := json.Marshal(resp)
+				if err != nil {
+					t.Fatalf("error '%s' was not expected while marshaling %v", err, resp)
+				}
+
+				if *update {
+					updateGoldenFile(t, tc.testName, string(actual))
+				}
+
+				expected := readGoldenFile(t, tc.testName)
+
+				if expected != string(actual) {
+					t.Errorf("expected %s, got %s", expected, string(actual))
+				}
+			}
+
+		})
+	}
+}
+
 func testPreconditions(t *testing.T, actual interface{}, err error, shouldPass bool) {
 	if err == nil && !shouldPass {
 		t.Fatal("the expected error didn't occur")
 	}
 	if err != nil && shouldPass {
-		t.Fatalf("an error '%s' was not expected calling GetUsers", err)
+		t.Fatalf("an error '%s' was not expected", err)
 	}
 	if actual == nil && shouldPass {
-		t.Fatal("call to GetUsers unexpectedly returned a nil result")
+		t.Fatal("gRPC call unexpectedly returned a nil result")
 	}
 }

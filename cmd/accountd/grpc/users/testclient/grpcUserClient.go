@@ -2,6 +2,16 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
+// This application is a simple gRPC accountd client. It runs a series of smoke tests against an accountd
+// service accepting gRPC requests.
+//
+// It is intended to be run by executing ../../../../../smoketestStandAloneGRPC.sh.
+//
+// It can also be run manually if the following requirements are met:
+//	1.	A running gRPC accountd service listening on 'localhost:5000' which 'may' be started using:
+//		../../../accountd -configFile "testdata/config/config" -secretsDir "testdata/secrets" -protocol "grpc" &
+//	2.	MySQL running on port 3306 or 6603 depending on the 'dbPort' value in ../../../testdata/config/config
+
 package main
 
 import (

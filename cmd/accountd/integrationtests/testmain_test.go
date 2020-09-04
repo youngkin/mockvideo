@@ -39,8 +39,8 @@ func TestMain(m *testing.M) {
 	}
 
 	// Rerun tests with protocol set to 'grpc'
-	protocol = "grpc"
 	accountdPID.Signal(syscall.SIGTERM)
+	protocol = "grpc"
 	err := initDB()
 	if err != nil {
 		os.Exit(initDBFailed)

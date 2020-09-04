@@ -376,9 +376,6 @@ func TestDELETEUser(t *testing.T) {
 		shouldPass         bool
 		url                string
 		expectedHTTPStatus int
-		updateResourceID   string
-		expectedResourceID string
-		postData           string
 		user               domain.User
 		setupFunc          func(*testing.T, domain.User) (*sql.DB, sqlmock.Sqlmock)
 		teardownFunc       func(*testing.T, sqlmock.Sqlmock)
@@ -388,18 +385,6 @@ func TestDELETEUser(t *testing.T) {
 			shouldPass:         true,
 			url:                "/users/2",
 			expectedHTTPStatus: http.StatusOK,
-			updateResourceID:   "users/2",
-			expectedResourceID: "",
-			postData: `
-			{
-				"ID": 2,
-				"AccountID":1,
-				"Name":"mickey dolenz",
-				"eMail":"mickeyd@gmail.com",
-				"role":1,
-				"password":"myawesomepassword"
-			}
-			`,
 			user: domain.User{
 				ID:        2,
 				AccountID: 1,
@@ -416,18 +401,6 @@ func TestDELETEUser(t *testing.T) {
 			shouldPass:         false,
 			url:                "/users/2",
 			expectedHTTPStatus: http.StatusInternalServerError,
-			updateResourceID:   "users/2",
-			expectedResourceID: "",
-			postData: `
-			{
-				"ID": 2,
-				"AccountID":1,
-				"Name":"mickey dolenz",
-				"eMail":"mickeyd@gmail.com",
-				"role":1,
-				"password":"myawesomepassword"
-			}
-			`,
 			user: domain.User{
 				ID:        2,
 				AccountID: 1,
