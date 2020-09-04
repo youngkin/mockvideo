@@ -22,6 +22,7 @@ const (
 
 	ErrorCode   string = "ErrorCode"
 	ErrorDetail string = "ErrorDetail"
+	ErrorMsg    string = "ErrorMessage"
 
 	HostName   string = "HostName"
 	HTTPStatus string = "HTTPStatus"

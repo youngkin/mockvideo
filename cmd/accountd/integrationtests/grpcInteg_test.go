@@ -101,13 +101,13 @@ func TestGetUsersGRPC(t *testing.T) {
 				testPreconditions(t, actual, err, tc.shouldPass)
 				if tc.shouldPass {
 					if *update {
-						updateGoldenFile(t, tc.testName, fmt.Sprintf("%v", actual))
+						updateGoldenFile(t, tc.testName, fmt.Sprintf("%s", actual))
 					}
 
 					expected := readGoldenFile(t, tc.testName)
 
-					if expected != fmt.Sprintf("%v", actual) {
-						t.Errorf("expected %s, got %s", expected, fmt.Sprintf("%v", actual))
+					if expected != fmt.Sprintf("%s", actual) {
+						t.Errorf("expected %s, got %s", expected, fmt.Sprintf("%s", actual))
 					}
 				}
 			default:

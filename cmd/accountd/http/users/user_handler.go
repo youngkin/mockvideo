@@ -115,45 +115,21 @@ func (h handler) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	if err2 != nil {
 		httpStatus := http.StatusInternalServerError
-		if err2.ErrCode == mverr.MalformedURLErrorCode {
+		switch err2.ErrCode {
+		case mverr.MalformedURLErrorCode:
 			httpStatus = http.StatusBadRequest
 			h.logger.WithFields(log.Fields{
 				logging.ErrorCode:   err2.ErrCode,
 				logging.ErrorDetail: err2.Error(),
 				logging.HTTPStatus:  httpStatus,
+				logging.Path:        r.URL.Path,
 			}).Error(err2.ErrMsg)
-			completeRequest(httpStatus, err2.ErrMsg)
-			return
+		case mverr.DBNoUserErrorCode:
+			httpStatus = http.StatusNotFound
 		}
 
 		// For non-mverr.MalformedURLErrors logging done in the service layer
 		completeRequest(httpStatus, err2.ErrMsg)
-		return
-	}
-
-	userFound := true
-	switch p := payload.(type) {
-	case nil:
-		userFound = false
-	case *domain.User:
-		userFound = true
-	case *domain.Users:
-		if len(p.Users) == 0 {
-			userFound = false
-		}
-	default:
-		h.logger.WithFields(log.Fields{
-			logging.ErrorCode:  mverr.UserTypeConversionErrorCode,
-			logging.HTTPStatus: http.StatusInternalServerError,
-		}).Error(mverr.UserTypeConversionErrorMsg)
-		completeRequest(http.StatusInternalServerError, mverr.UserTypeConversionErrorMsg)
-		return
-	}
-	if !userFound {
-		h.logger.WithFields(log.Fields{
-			logging.HTTPStatus: http.StatusNotFound,
-		}).Error("User not found")
-		completeRequest(http.StatusNotFound, "")
 		return
 	}
 
@@ -233,28 +209,29 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 
 	users := domain.Users{}
 	user := domain.User{}
-	isBulkRqst, msg, err := h.decodeRequest(r, &user, &users)
+	isBulkRqst, err := h.decodeRequest(r, &user, &users)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
-			logging.ErrorCode:   mverr.JSONDecodingErrorCode,
+			logging.ErrorCode:   err.ErrCode,
 			logging.HTTPStatus:  http.StatusBadRequest,
 			logging.Path:        r.URL.Path,
-			logging.ErrorDetail: err,
-		}).Error(mverr.JSONDecodingErrorMsg)
+			logging.ErrorDetail: err.ErrDetail,
+		}).Error(err.ErrMsg)
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(msg))
+		w.Write([]byte(err.ErrDetail))
 		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 		return
 	}
 
 	// Expecting URL.Path '/users'
-	pathNodes, err := h.getURLPathNodes(r.URL.Path)
-	if err != nil {
+	pathNodes, err2 := h.getURLPathNodes(r.URL.Path)
+	if err2 != nil {
 		h.logger.WithFields(log.Fields{
 			logging.ErrorCode:   mverr.MalformedURLErrorCode,
 			logging.HTTPStatus:  http.StatusBadRequest,
 			logging.Path:        r.URL.Path,
-			logging.ErrorDetail: err,
+			logging.ErrorMsg:    err2,
+			logging.ErrorDetail: fmt.Sprintf("error parsing URL Path %s", r.URL.Path),
 		}).Error(mverr.MalformedURLMsg)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(mverr.MalformedURLMsg))
@@ -313,14 +290,8 @@ func (h handler) handlePostSingleUser(user domain.User) Response {
 		if err.ErrCode == mverr.DBInsertDuplicateUserErrorCode || err.ErrCode == mverr.UserValidationErrorCode {
 			status = http.StatusBadRequest
 		}
-		h.logger.WithFields(log.Fields{
-			logging.ErrorCode:   err.ErrCode,
-			logging.HTTPStatus:  status,
-			logging.Path:        fmt.Sprintf("/users/%d", user.ID),
-			logging.ErrorDetail: err,
-		}).Error(err.ErrMsg)
 		return Response{
-			HTTPStatus: http.StatusBadRequest,
+			HTTPStatus: status,
 			ErrMsg:     err.ErrMsg,
 			ErrReason:  err.ErrCode,
 			User:       user,
@@ -342,20 +313,20 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 
 	users := &domain.Users{}
 	user := &domain.User{}
-	isBulkRqst, msg, err := h.decodeRequest(r, user, users)
+	isBulkRqst, err := h.decodeRequest(r, user, users)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(msg))
+		w.Write([]byte(err.ErrDetail))
 		UserRqstDur.WithLabelValues(strconv.Itoa(http.StatusBadRequest)).Observe(float64(time.Since(start)) / float64(time.Second))
 	}
 
-	pathNodes, err := h.getURLPathNodes(r.URL.Path)
-	if err != nil {
+	pathNodes, err2 := h.getURLPathNodes(r.URL.Path)
+	if err2 != nil {
 		h.logger.WithFields(log.Fields{
 			logging.ErrorCode:   mverr.MalformedURLErrorCode,
 			logging.HTTPStatus:  http.StatusBadRequest,
 			logging.Path:        r.URL.Path,
-			logging.ErrorDetail: err,
+			logging.ErrorDetail: err2,
 		}).Error(mverr.MalformedURLMsg)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(mverr.MalformedURLMsg))
@@ -403,12 +374,12 @@ func (h handler) handlePutSingleUser(user domain.User) Response {
 			httpStatus = http.StatusBadRequest
 			errMsg = mverr.DBNoUserErrorMsg
 		}
-		h.logger.WithFields(log.Fields{
-			logging.ErrorCode:   err.ErrCode,
-			logging.HTTPStatus:  httpStatus,
-			logging.Path:        fmt.Sprintf("/users/%d", user.ID),
-			logging.ErrorDetail: err.ErrDetail,
-		}).Error(errMsg)
+		// h.logger.WithFields(log.Fields{
+		// 	logging.ErrorCode:   err.ErrCode,
+		// 	logging.HTTPStatus:  httpStatus,
+		// 	logging.Path:        fmt.Sprintf("/users/%d", user.ID),
+		// 	logging.ErrorDetail: err.ErrDetail,
+		// }).Error(errMsg)
 		resp := Response{
 			HTTPStatus: httpStatus,
 			ErrMsg:     errMsg,
@@ -456,8 +427,8 @@ func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter,
 			h.logger.WithFields(log.Fields{
 				logging.ErrorCode:   resp.ErrReason,
 				logging.HTTPStatus:  resp.HTTPStatus,
-				logging.ErrorDetail: resp.ErrMsg,
-			}).Errorf("error creating/updating user %+v", resp.User)
+				logging.ErrorDetail: fmt.Sprintf("error creating/updating user: Name: %s, email: %s", resp.User.Name, resp.User.EMail),
+			}).Errorf(resp.ErrMsg)
 		}
 	}
 
@@ -493,7 +464,7 @@ func (h handler) handleConcurrentRqst(rqst Request, rqstC chan Request, rqstComp
 	h.logger.Debug("handleConcurrentRqst: response sent")
 }
 
-func (h handler) decodeRequest(r *http.Request, user *domain.User, users *domain.Users) (bool, string, error) {
+func (h handler) decodeRequest(r *http.Request, user *domain.User, users *domain.Users) (bool, *mverr.MVError) {
 	// Get user(s) out of request body and validate
 	d := json.NewDecoder(r.Body)
 	d.DisallowUnknownFields() // error if user sends extra data
@@ -504,14 +475,12 @@ func (h handler) decodeRequest(r *http.Request, user *domain.User, users *domain
 	if ok {
 		isBulkRqst, err = strconv.ParseBool(hVal[0])
 		if err != nil {
-			errMsg := fmt.Sprintf("Expected 'true' or 'false' value for 'Bulk-Request' header, got %s", hVal[0])
-			h.logger.WithFields(log.Fields{
-				logging.ErrorCode:   mverr.UserRqstErrorCode,
-				logging.HTTPStatus:  http.StatusBadRequest,
-				logging.ErrorDetail: errMsg,
-				"Bulk-Request:":     isBulkRqst,
-			}).Warn(mverr.JSONDecodingErrorMsg)
-			return isBulkRqst, errMsg, err
+			return isBulkRqst, &mverr.MVError{
+				ErrCode:    mverr.UserRqstErrorCode,
+				ErrDetail:  fmt.Sprintf("Expected 'true' or 'false' value for 'Bulk-Request' header, got %s", hVal[0]),
+				ErrMsg:     mverr.UserRqstErrorMsg,
+				WrappedErr: err,
+			}
 		}
 	}
 
@@ -521,22 +490,22 @@ func (h handler) decodeRequest(r *http.Request, user *domain.User, users *domain
 		err = d.Decode(user)
 	}
 	if err != nil {
-		h.logger.WithFields(log.Fields{
-			logging.ErrorCode:   mverr.JSONDecodingErrorCode,
-			logging.HTTPStatus:  http.StatusBadRequest,
-			logging.ErrorDetail: err.Error(),
-			"Bulk-Request:":     isBulkRqst,
-		}).Error(mverr.JSONDecodingErrorMsg)
-		return isBulkRqst, mverr.JSONDecodingErrorMsg, err
+		return isBulkRqst, &mverr.MVError{
+			ErrCode:    mverr.JSONDecodingErrorCode,
+			ErrDetail:  err.Error(),
+			ErrMsg:     mverr.JSONDecodingErrorMsg,
+			WrappedErr: err,
+		}
 	}
 	if d.More() {
 		h.logger.WithFields(log.Fields{
 			logging.ErrorCode:   mverr.JSONDecodingErrorCode,
-			logging.ErrorDetail: err.Error(),
+			logging.ErrorMsg:    mverr.JSONDecodingErrorMsg,
+			logging.ErrorDetail: fmt.Sprintf("JSON request body contained unexpected data: %s", r.Body),
 		}).Warn(mverr.JSONDecodingErrorMsg)
 	}
 
-	return isBulkRqst, "", nil
+	return isBulkRqst, nil
 }
 
 func (h handler) handleDelete(w http.ResponseWriter, r *http.Request) {

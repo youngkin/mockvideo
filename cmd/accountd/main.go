@@ -358,9 +358,9 @@ func startHTTPServer(userSvc *services.UserSvc, logger *log.Entry, maxBulkOps in
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		logger.WithFields(log.Fields{
-			logging.ErrorCode:   mverr.MalformedURLErrorCode,
-			logging.ErrorDetail: errors.New(mverr.MalformedURLMsg),
-		}).Info("handling request")
+			logging.ErrorCode: mverr.MalformedURLErrorCode,
+			logging.Path:      r.URL.Path,
+		}).Error(mverr.MalformedURLMsg)
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(mverr.MalformedURLMsg))
 	})

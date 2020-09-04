@@ -42,11 +42,11 @@ const (
 	DBDeleteErrorMsg = "a DB error occurred during a DELETE operation"
 	// DBInsertDuplicateUserErrorMsg indicates an attempt to insert a duplicate row
 	DBInsertDuplicateUserErrorMsg = "attempt to insert duplicate user"
-	// DBNoUserErrorMsg indicates an invalid DB request, like attempting to update a non-existent user
-	DBNoUserErrorMsg = "attempted update on a non-existent user"
+	// DBNoUserErrorMsg indicates that the requested user could not be found in the DB
+	DBNoUserErrorMsg = "User not found"
 	// DBRowScanErrorMsg indicates results from DB query could not be processed
 	DBRowScanErrorMsg = "DB resultset processing failed"
-	// DBUpSertErrorMsg indications that there was a problem executing a DB insert or update operation
+	// DBUpSertErrorMsg indicates that there was a problem executing a DB insert or update operation
 	DBUpSertErrorMsg = "DB insert or update failed"
 
 	// HTTPWriteErrorMsg indicates that there was a problem writing an HTTP response body

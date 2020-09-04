@@ -6,6 +6,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/youngkin/mockvideo/internal/domain"
@@ -60,6 +61,15 @@ func (us *UserSvc) GetUser(id int) (*domain.User, *mverr.MVError) {
 		return nil, err
 	}
 
+	if u == nil {
+		err := mverr.MVError{
+			ErrCode:   mverr.DBNoUserErrorCode,
+			ErrDetail: fmt.Sprintf("User %d not found", id),
+			ErrMsg:    mverr.DBNoUserErrorMsg,
+		}
+		us.logUserError(&err)
+		return nil, &err
+	}
 	return u, nil
 }
 
@@ -98,9 +108,8 @@ func (us *UserSvc) DeleteUser(id int) *mverr.MVError {
 
 func (us *UserSvc) logUserError(e *mverr.MVError) {
 	us.Logger.WithFields(log.Fields{
-		logging.ErrorCode:     e.ErrCode,
-		logging.ErrorDetail:   e.WrappedErr,
-		logging.MessageDetail: e.ErrMsg,
-	}).Error(e.ErrDetail)
+		logging.ErrorCode:   e.ErrCode,
+		logging.ErrorDetail: e.ErrDetail,
+	}).Error(e.ErrMsg)
 
 }

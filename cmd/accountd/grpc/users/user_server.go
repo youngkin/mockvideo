@@ -35,11 +35,6 @@ func (s *UserServer) GetUser(ctx context.Context, rqst *pb.UserID) (*pb.User, er
 		return nil, fmt.Errorf("Error received when getting user %d. Wrapped error: %s", rqst.Id, err)
 	}
 
-	// If user wasn't found nil will be returned
-	if u == nil {
-		return nil, nil
-	}
-
 	userPB := UserToProtobuf(u)
 	return userPB, nil
 }
