@@ -57,7 +57,7 @@ func main() {
 		HREF:      "",
 		Name:      "Brian Wilson",
 		EMail:     "goodvibrations@gmail.com",
-		Role:      pb.RoleType_UNRESTRICTED,
+		Role:      pb.RoleEnum_UNRESTRICTED,
 		Password:  "helpmerhonda",
 	}
 	id, err := client.CreateUser(context.Background(), u)
@@ -87,7 +87,7 @@ func main() {
 		HREF:      "",
 		Name:      "Brian Wilson",
 		EMail:     "goodvibrations@gmail.com",
-		Role:      pb.RoleType_UNRESTRICTED,
+		Role:      pb.RoleEnum_UNRESTRICTED,
 		Password:  "helpmerhonda",
 	}
 	id, err = client.CreateUser(context.Background(), u2)

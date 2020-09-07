@@ -131,6 +131,9 @@ func TestAddUpdateDeleteUser(t *testing.T) {
 		return
 	}
 
+	// Takes a while for the accountd container to start
+	time.Sleep(500 * time.Millisecond)
+
 	opts := grpc.WithInsecure()
 	cc, err := grpc.Dial("localhost:5000", opts)
 	if err != nil {
@@ -156,7 +159,7 @@ func TestAddUpdateDeleteUser(t *testing.T) {
 				AccountID: 1,
 				Name:      "Peter Green",
 				EMail:     "blackmagicwoman@gmail.com",
-				Role:      accountd.RoleType_UNRESTRICTED,
+				Role:      accountd.RoleEnum_UNRESTRICTED,
 				Password:  "lasttraintosanantone",
 			},
 		},
@@ -169,7 +172,7 @@ func TestAddUpdateDeleteUser(t *testing.T) {
 				AccountID: 1,
 				Name:      "Peter Green",
 				EMail:     "blackmagicwoman@gmail.com",
-				Role:      accountd.RoleType_UNRESTRICTED,
+				Role:      accountd.RoleEnum_UNRESTRICTED,
 				Password:  "lasttraintosanantone",
 			},
 		},
@@ -183,7 +186,7 @@ func TestAddUpdateDeleteUser(t *testing.T) {
 				ID:        6,
 				Name:      "Fleetwood Mac Peter Green",
 				EMail:     "blackmagicwoman@gmail.com",
-				Role:      accountd.RoleType_UNRESTRICTED,
+				Role:      accountd.RoleEnum_UNRESTRICTED,
 				Password:  "lasttraintosanantone",
 			},
 		},
@@ -197,7 +200,7 @@ func TestAddUpdateDeleteUser(t *testing.T) {
 				ID:        1000,
 				Name:      "Young Peter Green",
 				EMail:     "blackmagicwoman@gmail.com",
-				Role:      accountd.RoleType_UNRESTRICTED,
+				Role:      accountd.RoleEnum_UNRESTRICTED,
 				Password:  "lasttraintosanantone",
 			},
 		},
@@ -250,7 +253,154 @@ func TestAddUpdateDeleteUser(t *testing.T) {
 				expected := readGoldenFile(t, tc.testName)
 
 				if expected != string(actual) {
-					t.Errorf("expected %s, got %s", expected, string(actual))
+					t.Errorf("EXPECTED %s, GOT %s", expected, string(actual))
+				}
+			}
+
+		})
+	}
+}
+
+func TestBulkAddUpdateUser(t *testing.T) {
+	if protocol != "grpc" {
+		return
+	}
+
+	// Takes a while for the accountd container to start
+	time.Sleep(500 * time.Millisecond)
+
+	opts := grpc.WithInsecure()
+	cc, err := grpc.Dial("localhost:5000", opts)
+	if err != nil {
+		log.Fatalf("\terror %s attempting to connect to Accountd gRPC server", err)
+	}
+	defer cc.Close()
+
+	client := pb.NewUserServerClient(cc)
+
+	tcs := []struct {
+		testName              string
+		shouldPass            bool
+		callType              CallType
+		expectedIDs           []*accountd.UserID
+		rqstData              *accountd.Users
+		expectedOverallStatus accountd.StatusEnum
+		expectedResultStatus  []accountd.StatusEnum
+	}{
+		{
+			testName:   "testAddUsersOneSuccess",
+			shouldPass: true,
+			callType:   CREATEUSER,
+			expectedIDs: []*accountd.UserID{
+				{Id: 6},
+			},
+			rqstData: &accountd.Users{
+				Users: []*pb.User{
+					&accountd.User{
+						AccountID: 1,
+						Name:      "Peter Green",
+						EMail:     "blackmagicwoman@gmail.com",
+						Role:      accountd.RoleEnum_UNRESTRICTED,
+						Password:  "lasttraintosanantone",
+					},
+				},
+			},
+			expectedOverallStatus: pb.StatusEnum_StatusCreated,
+			expectedResultStatus:  []pb.StatusEnum{pb.StatusEnum_StatusCreated},
+		},
+		{
+			testName:   "testAddUsersTwoSuccess",
+			shouldPass: true,
+			callType:   CREATEUSER,
+			expectedIDs: []*accountd.UserID{
+				{Id: 7},
+				{Id: 8},
+			},
+			rqstData: &accountd.Users{
+				Users: []*pb.User{
+					&accountd.User{
+						AccountID: 1,
+						Name:      "Brian Wilson",
+						EMail:     "sloopjohnb@gmail.com",
+						Role:      accountd.RoleEnum_UNRESTRICTED,
+						Password:  "helpmerhonda",
+					},
+					&accountd.User{
+						AccountID: 1,
+						Name:      "Frank Zappa",
+						EMail:     "apostrophe@gmail.com",
+						Role:      accountd.RoleEnum_UNRESTRICTED,
+						Password:  "donteatyellowsnow",
+					},
+				},
+			},
+			expectedOverallStatus: pb.StatusEnum_StatusCreated,
+			expectedResultStatus:  []pb.StatusEnum{pb.StatusEnum_StatusCreated, pb.StatusEnum_StatusCreated},
+		},
+		{
+			testName:   "testUpdateUsersSuccess",
+			shouldPass: false,
+			callType:   UPDATEUSER,
+			expectedIDs: []*accountd.UserID{
+				{Id: 6},
+			},
+			rqstData: &accountd.Users{
+				Users: []*pb.User{
+					&accountd.User{
+						AccountID: 1,
+						ID:        6,
+						Name:      "Fleetwood Mac Peter Green",
+						EMail:     "blackmagicwoman@gmail.com",
+						Role:      accountd.RoleEnum_UNRESTRICTED,
+						Password:  "lasttraintosanantone",
+					},
+				},
+			},
+			expectedOverallStatus: pb.StatusEnum_StatusOK,
+			expectedResultStatus:  []pb.StatusEnum{pb.StatusEnum_StatusOK},
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Run(tc.testName, func(t *testing.T) {
+			var resp *pb.BulkResponse
+			var err error
+			switch tc.callType {
+			case CREATEUSER:
+				resp, err = client.CreateUsers(context.Background(), tc.rqstData)
+			case UPDATEUSER:
+				resp, err = client.UpdateUsers(context.Background(), tc.rqstData)
+			}
+
+			testPreconditions(t, resp, err, tc.shouldPass)
+
+			if tc.shouldPass {
+				if resp.OverallStatus != tc.expectedOverallStatus {
+					t.Errorf("OverallStatus: EXPECTED %d, GOT %d", tc.expectedOverallStatus, resp.OverallStatus)
+				}
+				for i, result := range resp.Response {
+					if result.Status != tc.expectedResultStatus[i] {
+						t.Errorf("Status: EXPECTED %d, GOT %d", tc.expectedResultStatus[i], result.Status)
+					}
+					u, err := client.GetUser(context.Background(), result.UserID)
+					if err != nil {
+						t.Fatalf("error '%s' was not expected calling accountd server", err)
+					}
+
+					actual, err := json.Marshal(u)
+					if err != nil {
+						t.Fatalf("error '%s' was not expected while marshaling %v", err, resp)
+					}
+
+					if *update {
+						updateGoldenFile(t, tc.testName+tc.rqstData.Users[i].EMail, string(actual))
+					}
+
+					expected := readGoldenFile(t, tc.testName+tc.rqstData.Users[i].EMail)
+
+					if expected != string(actual) {
+						t.Errorf("EXPECTED %s, GOT %s", expected, string(actual))
+					}
 				}
 			}
 

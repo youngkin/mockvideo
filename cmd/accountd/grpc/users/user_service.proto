@@ -9,21 +9,50 @@ import "google/protobuf/empty.proto";
 
 // 'go_package' will place the generated code at this path relative to
 // '--go_out' specification. The generated code will be in the 'accountd' package.
-option go_package = "mockvideo/pkg/accountd";
+option go_package = "pkg/accountd";
 
 service UserServer {
     rpc GetUser (UserID) returns (User) {}
     rpc GetUsers(google.protobuf.Empty) returns (Users) {}
     rpc CreateUser(User) returns (UserID) {}
+    rpc CreateUsers(Users) returns (BulkResponse) {}
     rpc UpdateUser(User) returns (google.protobuf.Empty) {} 
+    rpc UpdateUsers(Users) returns (BulkResponse) {}
     rpc DeleteUser(UserID) returns (google.protobuf.Empty) {}
     rpc Health(google.protobuf.Empty) returns (HealthMsg) {}
 }
 
-enum RoleType {
+enum RoleEnum {
     PRIMARY = 0;
     UNRESTRICTED = 1;
     RESTRICTED = 2;
+}
+
+enum StatusEnum {
+    // StatusBadRequest indicates that the client submitted an invalid request
+	StatusBadRequest = 0;
+	// StatusOK indicates the request completed successfully
+	StatusOK = 1;
+	// StatusCreated indicates that the requested resource was created
+	StatusCreated = 2;
+	// StatusConflict indicates that one or more of a set of bulk requests failed
+	StatusConflict = 3;
+	// StatusServerError indicates that the server encountered an error while servicing the request
+	StatusServerError = 4;
+	// StatusNotFound indicates the requested resource does not exist
+	StatusNotFound= 5;
+}
+
+message Response {
+    StatusEnum Status = 1;
+    string ErrMsg = 2;
+    int64 ErrReason = 3;
+    UserID UserID = 4;
+}
+
+message BulkResponse {
+    StatusEnum OverallStatus = 1;
+    repeated Response Response = 2;
 }
     
 message User {
@@ -32,7 +61,7 @@ message User {
     int64    ID = 3;   
     string   Name = 4;   
     string   EMail = 5;    
-    RoleType Role = 6;
+    RoleEnum Role = 6;
     string   Password  = 7;
 }
 
@@ -42,6 +71,10 @@ message Users {
 
 message UserID {
     int64 id = 1;
+}
+
+message UserIDs {
+    repeated UserID userID = 1;
 }
 
 message HealthMsg {

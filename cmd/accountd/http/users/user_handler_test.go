@@ -150,12 +150,12 @@ func TestPOSTUser(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			userSvc := services.UserSvc{
-				Repo:   ut,
-				Logger: logger,
+			userSvc, err := services.NewUserSvc(ut, logger, 10)
+			if err != nil {
+				t.Fatalf("error %s was not expected when getting UserSvc", err)
 			}
 
-			srvHandler, err := NewUserHandler(&userSvc, logger, 10)
+			srvHandler, err := NewUserHandler(userSvc, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
@@ -327,12 +327,12 @@ func TestPUTUser(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			userSvc := services.UserSvc{
-				Repo:   ut,
-				Logger: logger,
+			userSvc, err := services.NewUserSvc(ut, logger, 10)
+			if err != nil {
+				t.Fatalf("error %s was not expected when getting UserSvc", err)
 			}
 
-			srvHandler, err := NewUserHandler(&userSvc, logger, 10)
+			srvHandler, err := NewUserHandler(userSvc, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
@@ -423,12 +423,12 @@ func TestDELETEUser(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			userSvc := services.UserSvc{
-				Repo:   ut,
-				Logger: logger,
+			userSvc, err := services.NewUserSvc(ut, logger, 10)
+			if err != nil {
+				t.Fatalf("error %s was not expected when getting UserSvc", err)
 			}
 
-			srvHandler, err := NewUserHandler(&userSvc, logger, 10)
+			srvHandler, err := NewUserHandler(userSvc, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
@@ -514,12 +514,12 @@ func TestGetAllUsers(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			userSvc := services.UserSvc{
-				Repo:   ut,
-				Logger: logger,
+			userSvc, err := services.NewUserSvc(ut, logger, 10)
+			if err != nil {
+				t.Fatalf("error %s was not expected when getting UserSvc", err)
 			}
 
-			userHandler, err := NewUserHandler(&userSvc, logger, 10)
+			userHandler, err := NewUserHandler(userSvc, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
@@ -620,9 +620,9 @@ func TestGetUser(t *testing.T) {
 			}
 			defer dbase.Close()
 
-			userSvc := services.UserSvc{
-				Repo:   ut,
-				Logger: logger,
+			userSvc, err := services.NewUserSvc(ut, logger, 10)
+			if err != nil {
+				t.Fatalf("error %s was not expected when getting UserSvc", err)
 			}
 
 			// populate User.HREF from User.ID
@@ -630,7 +630,7 @@ func TestGetUser(t *testing.T) {
 				expected.HREF = tc.url
 			}
 
-			userHandler, err := NewUserHandler(&userSvc, logger, 10)
+			userHandler, err := NewUserHandler(userSvc, logger, 10)
 			if err != nil {
 				t.Fatalf("error '%s' was not expected when getting a user handler", err)
 			}
