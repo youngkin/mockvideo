@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -285,7 +286,7 @@ func TestBulkAddUpdateUser(t *testing.T) {
 		expectedIDs           []*accountd.UserID
 		rqstData              *accountd.Users
 		expectedOverallStatus accountd.StatusEnum
-		expectedResultStatus  []accountd.StatusEnum
+		expectedResults       []string
 	}{
 		{
 			testName:   "testAddUsersOneSuccess",
@@ -306,7 +307,7 @@ func TestBulkAddUpdateUser(t *testing.T) {
 				},
 			},
 			expectedOverallStatus: pb.StatusEnum_StatusCreated,
-			expectedResultStatus:  []pb.StatusEnum{pb.StatusEnum_StatusCreated},
+			expectedResults:       []string{"Peter Green"},
 		},
 		{
 			testName:   "testAddUsersTwoSuccess",
@@ -335,7 +336,7 @@ func TestBulkAddUpdateUser(t *testing.T) {
 				},
 			},
 			expectedOverallStatus: pb.StatusEnum_StatusCreated,
-			expectedResultStatus:  []pb.StatusEnum{pb.StatusEnum_StatusCreated, pb.StatusEnum_StatusCreated},
+			expectedResults:       []string{"Brian Wilson", "Frank Zappa"},
 		},
 		{
 			testName:   "testUpdateUsersSuccess",
@@ -357,7 +358,7 @@ func TestBulkAddUpdateUser(t *testing.T) {
 				},
 			},
 			expectedOverallStatus: pb.StatusEnum_StatusOK,
-			expectedResultStatus:  []pb.StatusEnum{pb.StatusEnum_StatusOK},
+			expectedResults:       []string{"Fleetwood Mac Peter Green"},
 		},
 	}
 
@@ -378,28 +379,30 @@ func TestBulkAddUpdateUser(t *testing.T) {
 				if resp.OverallStatus != tc.expectedOverallStatus {
 					t.Errorf("OverallStatus: EXPECTED %d, GOT %d", tc.expectedOverallStatus, resp.OverallStatus)
 				}
-				for i, result := range resp.Response {
-					if result.Status != tc.expectedResultStatus[i] {
-						t.Errorf("Status: EXPECTED %d, GOT %d", tc.expectedResultStatus[i], result.Status)
-					}
+
+				if len(resp.Response) != len(tc.expectedIDs) {
+					t.Errorf("EXPECTED %d responses, GOT %d", len(tc.expectedIDs), len(resp.Response))
+				}
+
+				var actual string
+
+				for _, result := range resp.Response {
 					u, err := client.GetUser(context.Background(), result.UserID)
 					if err != nil {
 						t.Fatalf("error '%s' was not expected calling accountd server", err)
 					}
 
-					actual, err := json.Marshal(u)
+					uString, err := json.Marshal(u)
 					if err != nil {
 						t.Fatalf("error '%s' was not expected while marshaling %v", err, resp)
 					}
 
-					if *update {
-						updateGoldenFile(t, tc.testName+tc.rqstData.Users[i].EMail, string(actual))
-					}
+					actual = strings.Join([]string{actual, string(uString)}, "")
+				}
 
-					expected := readGoldenFile(t, tc.testName+tc.rqstData.Users[i].EMail)
-
-					if expected != string(actual) {
-						t.Errorf("EXPECTED %s, GOT %s", expected, string(actual))
+				for _, name := range tc.expectedResults {
+					if ok := strings.Contains(actual, name); !ok {
+						t.Errorf("expected %s substring to be contained within %s", name, actual)
 					}
 				}
 			}

@@ -164,7 +164,7 @@ func (s *UserServer) CreateUsers(ctx context.Context, users *pb.Users) (*pb.Bulk
 	UserRqstDur.WithLabelValues(services.StatusTypeName[responses.OverallStatus]).Observe(float64(time.Since(start)) / float64(time.Second))
 
 	// TODO: Un/comment as needed
-	fmt.Printf("\n\n ====================> pb.BulkResponse: %+v\n\n", &bulkResponse)
+	s.logger.Debugf("\n\n ====================> pb.BulkResponse: %+v\n\n", &bulkResponse)
 
 	return &bulkResponse, retErr
 }
