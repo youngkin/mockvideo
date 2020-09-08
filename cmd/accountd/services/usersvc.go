@@ -113,15 +113,14 @@ func (us *UserSvc) CreateUsers(users domain.Users) (bulkResponse *BulkResponse, 
 		err = &mverr.MVError{
 			ErrCode: mverr.BulkRequestErrorCode,
 			ErrMsg:  mverr.BulkRequestErrorMsg,
-			WrappedErr: fmt.Errorf("part or all of a bulk request failed, overall request status %s",
+			WrappedErr: fmt.Errorf("part or all of a bulk create request failed, overall request status %s",
 				StatusTypeName[responses.OverallStatus]),
 		}
 		us.logUserError(err)
-		return nil, err
+		return responses, err
 	}
 
-	// TODO: Un/comment as needed
-	// fmt.Printf("\n\n ====================> BulkResponse: %+v\n\n", responses)
+	us.logger.Debugf("CreateUsers, BulkResponse: %+v", responses)
 
 	return responses, nil
 }
@@ -139,13 +138,32 @@ func (us *UserSvc) UpdateUser(user domain.User) *mverr.MVError {
 
 // UpdateUsers updates a group existing Users in the database
 func (us *UserSvc) UpdateUsers(users domain.Users) (bulkResponse *BulkResponse, err *mverr.MVError) {
-	// TODO: Implement
-	return nil, &mverr.MVError{
-		ErrCode:    mverr.BulkRequestErrorCode,
-		ErrMsg:     "NOT_IMPLEMENTED",
-		ErrDetail:  "UpdateUsers() not implemented",
-		WrappedErr: nil,
+	responses := us.handleRqstMultipleUsers(time.Now(), users, UPDATE)
+
+	for _, result := range responses.Results {
+		if result.ErrReason != mverr.NoErrorCode {
+			us.logger.WithFields(log.Fields{
+				logging.ErrorCode:   result.ErrReason,
+				logging.Status:      result.Status,
+				logging.ErrorDetail: fmt.Sprintf("error updating user: Name: %s, email: %s", result.User.Name, result.User.EMail),
+			}).Errorf(result.ErrMsg)
+		}
 	}
+
+	if responses.OverallStatus != StatusOK {
+		err = &mverr.MVError{
+			ErrCode: mverr.BulkRequestErrorCode,
+			ErrMsg:  mverr.BulkRequestErrorMsg,
+			WrappedErr: fmt.Errorf("part or all of a bulk update request failed, overall request status %s",
+				StatusTypeName[responses.OverallStatus]),
+		}
+		us.logUserError(err)
+		return responses, err
+	}
+
+	us.logger.Debugf("UpdateUsers, BulkResponse: %+v", responses)
+
+	return responses, nil
 }
 
 // DeleteUser deletes an existing user from the database
@@ -170,7 +188,7 @@ func (us *UserSvc) logUserError(e *mverr.MVError) {
 
 func (us *UserSvc) handleRqstMultipleUsers(start time.Time, users domain.Users, rqstType RqstType) *BulkResponse {
 	us.logger.Debugf("handleRqstMultipleUsers for %d", rqstType)
-	bp := NewBulkProcessor(us.maxBulkOps)
+	bp := NewBulkProcessor(us.maxBulkOps, us.logger)
 	defer bp.Stop()
 
 	br := NewBulkRequest(users, rqstType, us)
@@ -201,11 +219,11 @@ func (us *UserSvc) handleRqstMultipleUsers(start time.Time, users domain.Users, 
 }
 
 func (us *UserSvc) handleConcurrentRqst(rqst Request, rqstC chan Request, rqstCompC chan Response) {
-	us.logger.Debugf("handleConcurrentRqst: request %+v", rqst)
+	// us.logger.Debugf("handleConcurrentRqst: request %+v", rqst)
 	rqstC <- rqst
-	us.logger.Debug("handleConcurrentRqst: request sent")
+	// us.logger.Debug("handleConcurrentRqst: request sent")
 	resp := <-rqst.ResponseC
-	us.logger.Debugf("handleConcurrentRqst: response %+v received", rqst)
+	// us.logger.Debugf("handleConcurrentRqst: response %+v received", rqst)
 	rqstCompC <- resp
-	us.logger.Debug("handleConcurrentRqst: response sent")
+	// us.logger.Debug("handleConcurrentRqst: response sent")
 }

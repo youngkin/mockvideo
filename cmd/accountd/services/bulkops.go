@@ -7,6 +7,7 @@ package services
 import (
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/youngkin/mockvideo/internal/domain"
 	"github.com/youngkin/mockvideo/internal/errors"
 )
@@ -122,15 +123,17 @@ type BulkProcesor struct {
 	// a message from the channel. These operations should surround any calls requiring
 	// resources (i.e., processing Request-s on 'RequestC'.
 	limitRqstsC chan struct{}
+	logger      *log.Entry
 }
 
 // NewBulkProcessor returns a BulkProcessor which will support bulk user operations with a
 // maximum number of concurrent requests limited by concurrencyLimit
-func NewBulkProcessor(concurrencyLimit int) *BulkProcesor {
+func NewBulkProcessor(concurrencyLimit int, logger *log.Entry) *BulkProcesor {
 	bp := BulkProcesor{
 		RequestC:    make(chan Request, concurrencyLimit),
 		close:       make(chan struct{}),
 		limitRqstsC: make(chan struct{}, concurrencyLimit),
+		logger:      logger,
 	}
 	go bp.loop()
 	return &bp
@@ -169,8 +172,7 @@ func (bp BulkProcesor) process(rqst Request) {
 
 	switch rqst.rqstType {
 	case CREATE:
-		// TODO: Un/comment as needed
-		// fmt.Printf("\n\n ====================> BulkProcessor processing CREATE request: %+v\n", rqst)
+		bp.logger.Debugf("BulkProcessor processing CREATE request: %+v", rqst)
 		id, err := rqst.userSvc.CreateUser(rqst.user)
 		if err != nil {
 			r = Response{
@@ -185,8 +187,7 @@ func (bp BulkProcesor) process(rqst Request) {
 			r.User.ID = id
 		}
 	case UPDATE:
-		// TODO: Un/comment as needed
-		// fmt.Printf("\n\n ====================> BulkProcessor processing UPDATE request: %+v\n", rqst)
+		bp.logger.Debugf("BulkProcessor processing UPDATE request: %+v", rqst)
 		err := rqst.userSvc.UpdateUser(rqst.user)
 		if err != nil {
 			r = Response{
@@ -200,9 +201,9 @@ func (bp BulkProcesor) process(rqst Request) {
 			r.User = rqst.user
 		}
 	default:
-		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor received unsupported HTTP method request: %+v", rqst)
+		bp.logger.Debugf("BulkProcessor received unsupported request type: %+v", rqst)
 		r = Response{
-			ErrMsg:    fmt.Sprintf("Bulk RequestType %s not supported\n", RqstTypeName[rqst.rqstType]),
+			ErrMsg:    fmt.Sprintf("Bulk RequestType %s not supported", RqstTypeName[rqst.rqstType]),
 			ErrReason: errors.UserRqstErrorCode,
 			Status:    StatusBadRequest,
 			User:      rqst.user,
@@ -210,6 +211,5 @@ func (bp BulkProcesor) process(rqst Request) {
 	}
 
 	rqst.ResponseC <- r
-	// TODO: Un/comment as needed
-	// fmt.Printf("\n\n ====================> BulkProcessor.process sent response: %+v\n\n", r)
+	bp.logger.Debugf("BulkProcessor.process sent response: %+v", r)
 }

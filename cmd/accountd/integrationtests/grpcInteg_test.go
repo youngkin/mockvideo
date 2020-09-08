@@ -127,7 +127,7 @@ func TestGetUsersGRPC(t *testing.T) {
 	}
 }
 
-func TestAddUpdateDeleteUser(t *testing.T) {
+func TestAddUpdateDeleteUserGRPC(t *testing.T) {
 	if protocol != "grpc" {
 		return
 	}
@@ -262,7 +262,7 @@ func TestAddUpdateDeleteUser(t *testing.T) {
 	}
 }
 
-func TestBulkAddUpdateUser(t *testing.T) {
+func TestBulkAddUpdateUserGRPC(t *testing.T) {
 	if protocol != "grpc" {
 		return
 	}
@@ -293,7 +293,7 @@ func TestBulkAddUpdateUser(t *testing.T) {
 			shouldPass: true,
 			callType:   CREATEUSER,
 			expectedIDs: []*accountd.UserID{
-				{Id: 6},
+				{Id: 8},
 			},
 			rqstData: &accountd.Users{
 				Users: []*pb.User{
@@ -314,8 +314,8 @@ func TestBulkAddUpdateUser(t *testing.T) {
 			shouldPass: true,
 			callType:   CREATEUSER,
 			expectedIDs: []*accountd.UserID{
-				{Id: 7},
-				{Id: 8},
+				{Id: 9},
+				{Id: 10},
 			},
 			rqstData: &accountd.Users{
 				Users: []*pb.User{
@@ -339,17 +339,17 @@ func TestBulkAddUpdateUser(t *testing.T) {
 			expectedResults:       []string{"Brian Wilson", "Frank Zappa"},
 		},
 		{
-			testName:   "testUpdateUsersSuccess",
-			shouldPass: false,
+			testName:   "testUpdateUsersOneSuccess",
+			shouldPass: true,
 			callType:   UPDATEUSER,
 			expectedIDs: []*accountd.UserID{
-				{Id: 6},
+				{Id: 8},
 			},
 			rqstData: &accountd.Users{
 				Users: []*pb.User{
 					&accountd.User{
 						AccountID: 1,
-						ID:        6,
+						ID:        8,
 						Name:      "Fleetwood Mac Peter Green",
 						EMail:     "blackmagicwoman@gmail.com",
 						Role:      accountd.RoleEnum_UNRESTRICTED,
@@ -360,6 +360,43 @@ func TestBulkAddUpdateUser(t *testing.T) {
 			expectedOverallStatus: pb.StatusEnum_StatusOK,
 			expectedResults:       []string{"Fleetwood Mac Peter Green"},
 		},
+		// This test is non-deterministic as the actual creation order of the
+		// 2 users can't be predicted. This means the IDs used below for updating
+		// may not be correct. If not, there will be a "duplicate entry" error on
+		// updating as the 'Email' fields must be unique, e.g., updating 'Beach Boy Brian Wilson's"
+		// email address with Zappa's will violate the duplicate email address restriction, as
+		// Zappa's already exists.
+		// {
+		// 	testName:   "testUpdateUsersTwoSuccess",
+		// 	shouldPass: true,
+		// 	callType:   UPDATEUSER,
+		// 	expectedIDs: []*accountd.UserID{
+		// 		{Id: 9},
+		// 		{Id: 10},
+		// 	},
+		// 	rqstData: &accountd.Users{
+		// 		Users: []*pb.User{
+		// 			&accountd.User{
+		// 				AccountID: 1,
+		// 				ID:        9,
+		// 				Name:      "Beach Boy Brian Wilson",
+		// 				EMail:     "sloopjohnb@gmail.com",
+		// 				Role:      accountd.RoleEnum_UNRESTRICTED,
+		// 				Password:  "helpmerhonda",
+		// 			},
+		// 			&accountd.User{
+		// 				AccountID: 1,
+		// 				ID:        10,
+		// 				Name:      "Mothers of Invention Frank Zappa",
+		// 				EMail:     "apostrophe@gmail.com",
+		// 				Role:      accountd.RoleEnum_UNRESTRICTED,
+		// 				Password:  "donteatyellowsnow",
+		// 			},
+		// 		},
+		// 	},
+		// 	expectedOverallStatus: pb.StatusEnum_StatusOK,
+		// 	expectedResults:       []string{"Beach Boy Brian Wilson", "Mothers of Invention Frank Zappa"},
+		// },
 	}
 
 	for _, tc := range tcs {

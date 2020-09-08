@@ -158,22 +158,60 @@ func (s *UserServer) CreateUsers(ctx context.Context, users *pb.Users) (*pb.Bulk
 
 	var retErr error
 	if mvErr != nil {
-		retErr = fmt.Errorf("Error received creating a new user. Wrapped error: %s", mvErr)
+		retErr = fmt.Errorf("Error received creating new users, %s", mvErr.WrappedErr)
 	}
 
 	UserRqstDur.WithLabelValues(services.StatusTypeName[responses.OverallStatus]).Observe(float64(time.Since(start)) / float64(time.Second))
 
-	// TODO: Un/comment as needed
-	s.logger.Debugf("\n\n ====================> pb.BulkResponse: %+v\n\n", &bulkResponse)
+	s.logger.Debugf("CreateUsers: pb.BulkResponse: %+v", &bulkResponse)
 
 	return &bulkResponse, retErr
 }
 
 // UpdateUsers updates the set of users provided in the 'users' parameter
 func (s *UserServer) UpdateUsers(ctx context.Context, users *pb.Users) (*pb.BulkResponse, error) {
-	// start := time.Now()
+	start := time.Now()
 
-	return &pb.BulkResponse{}, errors.New("UpdateUsers() Not Implemented")
+	s.logger.WithFields(log.Fields{
+		logging.RPCFunc: "UpdateUsers",
+	}).Info("UpdateUsers RPC request received")
+	for _, u := range users.Users {
+		s.logger.WithFields(log.Fields{
+			logging.RPCFunc:   "UpdateUsers",
+			logging.UserEMail: u.GetEMail(),
+		}).Info("UpdateUsers RPC request received")
+	}
+
+	du, err := ProtobufToUsers(users)
+	if err != nil {
+		return nil, fmt.Errorf("invalid protobuf.User value provided: Error: %s", err)
+	}
+
+	responses, mvErr := s.userSvc.UpdateUsers(*du)
+
+	bulkResponse := pb.BulkResponse{OverallStatus: statusToPBStatus(responses.OverallStatus)}
+	for _, result := range responses.Results {
+		response := pb.Response{
+			Status:    statusToPBStatus(result.Status),
+			ErrMsg:    result.ErrMsg,
+			ErrReason: int64(result.ErrReason),
+			UserID: &pb.UserID{
+				Id: int64(result.User.ID),
+			},
+		}
+		bulkResponse.Response = append(bulkResponse.Response, &response)
+	}
+
+	var retErr error
+	if mvErr != nil {
+		retErr = fmt.Errorf("Error received updating users. Wrapped error: %s", mvErr)
+	}
+
+	UserRqstDur.WithLabelValues(services.StatusTypeName[responses.OverallStatus]).Observe(float64(time.Since(start)) / float64(time.Second))
+
+	s.logger.Debugf("UpdateUsers: pb.BulkResponse: %+v", &bulkResponse)
+
+	return &bulkResponse, retErr
 }
 
 // UpdateUser updates an existing user
