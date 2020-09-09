@@ -187,7 +187,7 @@ func (us *UserSvc) logUserError(e *mverr.MVError) {
 }
 
 func (us *UserSvc) handleRqstMultipleUsers(start time.Time, users domain.Users, rqstType RqstType) *BulkResponse {
-	us.logger.Debugf("handleRqstMultipleUsers for %d", rqstType)
+	us.logger.Debugf("handleRqstMultipleUsers for %s", RqstTypeName[rqstType])
 	bp := NewBulkProcessor(us.maxBulkOps, us.logger)
 	defer bp.Stop()
 

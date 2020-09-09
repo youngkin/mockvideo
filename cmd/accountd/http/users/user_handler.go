@@ -257,31 +257,26 @@ func (h handler) handlePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Logging is handled by 'handlePostSingleUser()'
-	resp := h.handlePostSingleUser(user)
-	resourceID := fmt.Sprintf("/users/%d", resp.User.ID)
-	w.Header().Add("Location", resourceID)
-	w.WriteHeader(resp.HTTPStatus)
-	w.Write([]byte(resp.ErrMsg))
-	UserRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+	status := h.handlePostSingleUser(w, user)
+
+	UserRqstDur.WithLabelValues(strconv.Itoa(status)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) handlePostSingleUser(user domain.User) Response {
+func (h handler) handlePostSingleUser(w http.ResponseWriter, user domain.User) int {
 	h.logger.Debugf("handlePostSingleUser: user %+v", user)
 	if user.ID != 0 { // User ID must *NOT* be populated (i.e., with a non-zero value) on an insert
-		errMsg := fmt.Sprintf("expected User.ID > 0, got User.ID = %d", user.ID)
+		errMsg := fmt.Sprintf("expected User.ID = 0, got User.ID = %d", user.ID)
 		h.logger.WithFields(log.Fields{
 			logging.ErrorCode:   mverr.InvalidInsertErrorCode,
 			logging.HTTPStatus:  http.StatusBadRequest,
 			logging.Path:        fmt.Sprintf("/users/%d", user.ID),
 			logging.ErrorDetail: errMsg,
 		}).Error(mverr.InvalidInsertErrorMsg)
-		return Response{
-			HTTPStatus: http.StatusBadRequest,
-			ErrMsg:     errMsg,
-			ErrReason:  mverr.UserRqstErrorCode,
-			User:       user,
-		}
+
+		w.WriteHeader(http.StatusBadRequest)
+		w.Write([]byte(errMsg))
+		return http.StatusBadRequest
+
 	}
 
 	userID, err := h.userSvc.CreateUser(user)
@@ -290,22 +285,17 @@ func (h handler) handlePostSingleUser(user domain.User) Response {
 		if err.ErrCode == mverr.DBInsertDuplicateUserErrorCode || err.ErrCode == mverr.UserValidationErrorCode {
 			status = http.StatusBadRequest
 		}
-		return Response{
-			HTTPStatus: status,
-			ErrMsg:     err.ErrMsg,
-			ErrReason:  err.ErrCode,
-			User:       user,
-		}
+		w.WriteHeader(status)
+		w.Write([]byte(err.ErrMsg))
+		return status
 	}
 
 	user.ID = userID
 	user.HREF = fmt.Sprintf("/users/%d", userID)
 
-	return Response{
-		HTTPStatus: http.StatusCreated,
-		User:       user,
-	}
-
+	w.Header().Add("Location", user.HREF)
+	w.WriteHeader(http.StatusCreated)
+	return http.StatusCreated
 }
 
 func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
@@ -354,14 +344,11 @@ func (h handler) handlePut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Logging is handled by 'handlePostSingleUser()'
-	resp := h.handlePutSingleUser(*user)
-	w.WriteHeader(resp.HTTPStatus)
-	w.Write([]byte(resp.ErrMsg))
-	UserRqstDur.WithLabelValues(strconv.Itoa(resp.HTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+	status := h.handlePutSingleUser(w, *user)
+	UserRqstDur.WithLabelValues(strconv.Itoa(status)).Observe(float64(time.Since(start)) / float64(time.Second))
 }
 
-func (h handler) handlePutSingleUser(user domain.User) Response {
+func (h handler) handlePutSingleUser(w http.ResponseWriter, user domain.User) int {
 	err := h.userSvc.UpdateUser(user)
 	if err != nil {
 		errMsg := mverr.DBUpSertErrorMsg
@@ -374,66 +361,35 @@ func (h handler) handlePutSingleUser(user domain.User) Response {
 			httpStatus = http.StatusBadRequest
 			errMsg = mverr.DBNoUserErrorMsg
 		}
-		// h.logger.WithFields(log.Fields{
-		// 	logging.ErrorCode:   err.ErrCode,
-		// 	logging.HTTPStatus:  httpStatus,
-		// 	logging.Path:        fmt.Sprintf("/users/%d", user.ID),
-		// 	logging.ErrorDetail: err.ErrDetail,
-		// }).Error(errMsg)
-		resp := Response{
-			HTTPStatus: httpStatus,
-			ErrMsg:     errMsg,
-			ErrReason:  err.ErrCode,
-			User:       user,
-		}
-		return resp
+
+		w.WriteHeader(httpStatus)
+		w.Write([]byte(errMsg))
+		return httpStatus
 	}
 
-	return Response{
-		HTTPStatus: http.StatusOK,
-		ErrMsg:     "",
-		ErrReason:  mverr.NoErrorCode,
-		User:       user,
-	}
+	w.WriteHeader(http.StatusOK)
+	return http.StatusOK
+
 }
 
 func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter, path string, users domain.Users, method string) {
 	h.logger.Debugf("handleRqstMultipleUsers for %s", method)
-	bp := NewBulkProcessor(h.maxBulkOps)
-	defer bp.Stop()
 
-	br := NewBulkRequest(users, method, h.userSvc)
-	rqstCompleteC := make(chan Response)
-	numUsers := len(users.Users)
-
-	for i := 0; i < numUsers; i++ {
-		go h.handleConcurrentRqst(br.Requests[i], bp.RequestC, rqstCompleteC)
+	var responses *services.BulkResponse
+	switch method {
+	case http.MethodPost:
+		responses, _ = h.userSvc.CreateUsers(users)
+	case http.MethodPut:
+		responses, _ = h.userSvc.UpdateUsers(users)
+	default:
+		h.logger.WithFields(log.Fields{
+			logging.ErrorCode:   mverr.BulkRequestErrorCode,
+			logging.ErrorDetail: fmt.Errorf("unsupported HTTP Method %s specified in bulk request, only POST and PUT are supported", method),
+		}).Error(mverr.BulkRequestErrorMsg)
+		responses = &services.BulkResponse{OverallStatus: http.StatusBadRequest}
 	}
 
-	h.logger.Debugf("handleRqstMultipleUsers: Started %d %s goroutines", numUsers, method)
-	responses := BulkResponse{}
-	overallHTTPStatus := http.StatusOK
-	if method == http.MethodPost {
-		overallHTTPStatus = http.StatusCreated
-	}
-
-	for i := 0; i < numUsers; i++ {
-		resp := <-rqstCompleteC
-		responses.Results = append(responses.Results, resp)
-		if resp.HTTPStatus != http.StatusCreated && resp.HTTPStatus != http.StatusOK {
-			overallHTTPStatus = http.StatusConflict
-		}
-		if resp.ErrReason != mverr.NoErrorCode {
-			h.logger.WithFields(log.Fields{
-				logging.ErrorCode:   resp.ErrReason,
-				logging.HTTPStatus:  resp.HTTPStatus,
-				logging.ErrorDetail: fmt.Sprintf("error creating/updating user: Name: %s, email: %s", resp.User.Name, resp.User.EMail),
-			}).Errorf(resp.ErrMsg)
-		}
-	}
-
-	responses.OverallStatus = overallHTTPStatus
-	marshResp, err := json.Marshal(responses)
+	marshResp, err := json.Marshal(*responses)
 	if err != nil {
 		h.logger.WithFields(log.Fields{
 			logging.ErrorCode:   mverr.JSONMarshalingErrorCode,
@@ -445,23 +401,36 @@ func (h handler) handleRqstMultipleUsers(start time.Time, w http.ResponseWriter,
 		return
 	}
 
-	w.WriteHeader(overallHTTPStatus)
+	overallStatus := mapStatusToHTTPStatus(responses.OverallStatus)
+	w.WriteHeader(overallStatus)
 	w.Header().Set("Content-Type", "application/json")
 	w.Write(marshResp)
 
-	h.logger.Debugf("handleRqstMultipleUsers: reponse sent, bulkprocessor stopped for %s", method)
-	UserRqstDur.WithLabelValues(strconv.Itoa(overallHTTPStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
+	h.logger.Debugf("handleRqstMultipleUsers: response %s for method %s with HTTP Status %d", marshResp, method, overallStatus)
+	UserRqstDur.WithLabelValues(strconv.Itoa(overallStatus)).Observe(float64(time.Since(start)) / float64(time.Second))
 	return
 }
 
-func (h handler) handleConcurrentRqst(rqst Request, rqstC chan Request, rqstCompC chan Response) {
-	h.logger.Debugf("handleConcurrentRqst: request %+v", rqst)
-	rqstC <- rqst
-	h.logger.Debug("handleConcurrentRqst: request sent")
-	resp := <-rqst.ResponseC
-	h.logger.Debugf("handleConcurrentRqst: response %+v received", rqst)
-	rqstCompC <- resp
-	h.logger.Debug("handleConcurrentRqst: response sent")
+func mapStatusToHTTPStatus(status services.Status) int {
+	var httpStatus int
+	switch status {
+	case services.StatusBadRequest:
+		httpStatus = http.StatusBadRequest
+	case services.StatusConflict:
+		httpStatus = http.StatusConflict
+	case services.StatusCreated:
+		httpStatus = http.StatusCreated
+	case services.StatusNotFound:
+		httpStatus = http.StatusNotFound
+	case services.StatusOK:
+		httpStatus = http.StatusOK
+	case services.StatusServerError:
+		httpStatus = http.StatusInternalServerError
+	default:
+		httpStatus = http.StatusInternalServerError
+	}
+
+	return httpStatus
 }
 
 func (h handler) decodeRequest(r *http.Request, user *domain.User, users *domain.Users) (bool, *mverr.MVError) {
