@@ -38,6 +38,9 @@ func (e *MVError) Error() string {
 // ---------------------- Miscellaneous error messages ------------------------------
 //
 const (
+	// BulkRequestErrorMsg provides information about a failed bulk request
+	BulkRequestErrorMsg = "an error occurred during a bulk request operation"
+
 	// DBDeleteErrorMsg is an indication of a DB error during a DELETE operation
 	DBDeleteErrorMsg = "a DB error occurred during a DELETE operation"
 	// DBInsertDuplicateUserErrorMsg indicates an attempt to insert a duplicate row
@@ -76,8 +79,8 @@ const (
 	UnableToCreateRepositoryMsg = "Unable to create domain object repository"
 	// UnableToCreateRPCServerErrorMsg indicates there was a problem creating a gRPC endpoint
 	UnableToCreateRPCServerErrorMsg = "Unable to create gRPC service endpoint"
-	// UnableToCreateUseCaseMsg indicates that there was a problem creating an application use case
-	UnableToCreateUseCaseMsg = "Unable to create application use case"
+	// UnableToCreateUserSvcMsg indicates that there was a problem creating an application use case
+	UnableToCreateUserSvcMsg = "Unable to create UserService"
 	// UnableToGetConfigMsg indicates there was a problem obtaining the application configuration
 	UnableToGetConfigMsg = "Unable to get information from configuration"
 	// UnableToGetDBConnStrMsg indicates there was a problem constructing a DB connection string
@@ -123,6 +126,9 @@ const (
 	// UnknownErrorCode is applied when unexpected errors occur and none of the other error codes apply
 	UnknownErrorCode
 
+	// BulkRequestErrorCode indicates there was a problem with a bulk request (CREATE or UPDATE)
+	BulkRequestErrorCode
+
 	// DBDeleteErrorCode indication of a DB error during a DELETE operation
 	DBDeleteErrorCode
 	// DBInsertDuplicateUserErrorCode indicates an attempt to insert a duplicate row
@@ -164,8 +170,8 @@ const (
 	UnableToCreateRepositoryErrorCode
 	// UnableToCreateRPCServerErrorCode is the error code associated with UnableToCreateRPCServerErrorMsg
 	UnableToCreateRPCServerErrorCode
-	// UnableToCreateUseCaseErrorCode is the error code associated with UnableToCreateUseCase
-	UnableToCreateUseCaseErrorCode
+	// UnableToCreateUserSvcErrorCode is the error code associated with UnableToCreateUseCase
+	UnableToCreateUserSvcErrorCode
 	// UnableToGetConfigErrorCode is the error code associated with UnableToGetConfig
 	UnableToGetConfigErrorCode
 	// UnableToGetDBConnStrErrorCode is the error code associated with UnableToGetDBConnStr

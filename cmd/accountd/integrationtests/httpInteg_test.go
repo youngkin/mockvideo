@@ -419,9 +419,6 @@ func TestBulkPOSTPUTUser(t *testing.T) {
 					t.Errorf("an error '%s' was not expected reading response body", err)
 				}
 
-				// TODO: REMOVE
-				t.Logf("GET Results: %s", string(actual))
-
 				for _, name := range tc.shouldContain {
 					if ok := strings.Contains(string(actual), name); !ok {
 						t.Errorf("expected %s substring to be contained within %s", name, string(actual))

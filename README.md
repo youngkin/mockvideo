@@ -34,7 +34,7 @@ Currently, the following capabilities have been implemented:
     3.  Logging
     4.  Database (MySQL) access
     5.  Implementation of HTTP and gRPC endpoints
-    6.  Unit testing, including HTTP server testing and the use of 'golden files'.
+    6.  Unit testing, including HTTP and gRPC server testing, and the use [advanced Go testing techniques](https://povilasv.me/go-advanced-testing-tips-tricks/) including the use of 'golden files'.
     7.  Integration testing, including starting, initializing, and stopping required services like MySQL.
     8.  Use of Helm/Kubernetes including:
 
@@ -204,7 +204,23 @@ The `results` above shows the first user was successfully created. The second re
 |500|Internal server error, can retry, subsequent request _might_ succeed|
 
 ## gRPC
-See [pkg](https://github.com/youngkin/mockvideo/tree/master/pkg) for details regarding the gRPC API
+
+gRPC access is also supported. You must import the [github.com/youngkin/mockvideo/pkg/accountd](https://github.com/youngkin/mockvideo/tree/master/pkg/accountd) package to use it. Currently only Golang(Go) clients are supported. The following interface is available:
+
+```go
+type UserServerClient interface {
+    GetUser(ctx context.Context, in *UserID, opts ...grpc.CallOption) (*User, error)
+    GetUsers(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*Users, error)
+    CreateUser(ctx context.Context, in *User, opts ...grpc.CallOption) (*UserID, error
+    CreateUsers(ctx context.Context, in *Users, opts ...grpc.CallOption) (*BulkResponse, error)
+    UpdateUser(ctx context.Context, in *User, opts ...grpc.CallOption) (*empty.Empty, error)
+    UpdateUsers(ctx context.Context, in *Users, opts ...grpc.CallOption) (*BulkResponse, error)
+    DeleteUser(ctx context.Context, in *UserID, opts ...grpc.CallOption) (*empty.Empty, error)
+    Health(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*HealthMsg, error)
+}
+```
+
+See [pkg](https://github.com/youngkin/mockvideo/tree/master/pkg) for details regarding the API
 
 # Running and testing the application
 
@@ -272,7 +288,7 @@ From the project root directory (`mockvideo`) run:
 ./build.sh test
 ```
 
-This runs `go vet ./...`, `go fmt ./...`, `golint ./...`, and `go test -race ./...`
+This runs `go vet ./...`, `go fmt ./...`, `golint ./...`, and `go test -race ./...` against both the HTTP and gRPC endpoints.
 
 Running `smoketestStandalone.sh` is a good way to see the application in operation. This script will:
 
@@ -280,7 +296,7 @@ Running `smoketestStandalone.sh` is a good way to see the application in operati
 2. start MySQL
 3. initialize the database
 4. start the application
-5. run a series of simple tests
+5. run a series of simple tests against the HTTP interface
 6. finish by stopping MySQL and the application
 
 Run the script as follows:

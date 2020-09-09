@@ -190,12 +190,12 @@ func main() {
 		}).Fatal(mverr.UnableToCreateRepositoryMsg)
 		os.Exit(1)
 	}
-	userSvc, err := services.NewUserSvc(userTable, logger)
+	userSvc, err := services.NewUserSvc(userTable, logger, maxBulkOps)
 	if err != nil {
 		logger.WithFields(log.Fields{
-			logging.ErrorCode:   mverr.UnableToCreateUseCaseErrorCode,
+			logging.ErrorCode:   mverr.UnableToCreateUserSvcErrorCode,
 			logging.ErrorDetail: "unable to create a services.UserUseCase instance",
-		}).Fatal(mverr.UnableToCreateUseCaseMsg)
+		}).Fatal(mverr.UnableToCreateUserSvcMsg)
 		os.Exit(1)
 	}
 
@@ -383,7 +383,7 @@ func startHTTPServer(userSvc *services.UserSvc, logger *log.Entry, maxBulkOps in
 }
 
 func startGRPCServer(userSvc *services.UserSvc, logger *log.Entry, maxBulkOps int, port string) (*grpc.Server, error) {
-	usersServer, err := grpcuser.NewUserServer(userSvc, logger, maxBulkOps)
+	usersServer, err := grpcuser.NewUserServer(userSvc, logger)
 	conn, err := net.Listen("tcp", port)
 	if err != nil {
 		return nil, err

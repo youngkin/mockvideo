@@ -27,9 +27,8 @@ const (
 	HostName   string = "HostName"
 	HTTPStatus string = "HTTPStatus"
 
-	LogLevel      string = "LogLevel"
-	Method        string = "HTTPMethod"
-	MessageDetail string = "MsgDetail"
+	LogLevel string = "LogLevel"
+	Method   string = "HTTPMethod"
 
 	Path string = "URLPath"
 	Port string = "Port"
@@ -42,7 +41,11 @@ const (
 	UserID    string = "UserID"
 	UserEMail string = "UserEMail"
 
+	Status string = "Status"
+
 	TestName string = "TestName"
+
+	WrappedError string = "WrappedError"
 )
 
 const (

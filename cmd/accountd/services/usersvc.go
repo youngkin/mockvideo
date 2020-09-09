@@ -7,6 +7,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/youngkin/mockvideo/internal/domain"
@@ -21,28 +22,38 @@ type UserSvcInterface interface {
 	GetUsers() (*domain.Users, *mverr.MVError)
 	GetUser(id int) (*domain.User, *mverr.MVError)
 	CreateUser(user domain.User) (id int, err *mverr.MVError)
+	CreateUsers(users domain.Users) (bulkResponse *BulkResponse, err *mverr.MVError)
 	UpdateUser(user domain.User) *mverr.MVError
+	UpdateUsers(users domain.Users) (bulkResponse *BulkResponse, err *mverr.MVError)
 	DeleteUser(id int) *mverr.MVError
 }
 
 // UserSvc provides the capability needed to interact with application
 // usecases related to users
 type UserSvc struct {
-	Repo   domain.UserRepository
-	Logger *log.Entry
+	repo       domain.UserRepository
+	logger     *log.Entry
+	maxBulkOps int
 }
 
-// NewUserSvc returns a new instance that handles application usecases related to users
-func NewUserSvc(ur domain.UserRepository, logger *log.Entry) (*UserSvc, error) {
+// NewUserSvc returns a new instance that handles application usecases related to users.
+// 'ur' and 'logger' must be non-nil. 'maxBulkOps' must be greater than 0.
+func NewUserSvc(ur domain.UserRepository, logger *log.Entry, maxBulkOps int) (*UserSvc, error) {
 	if ur == nil {
 		return nil, errors.New("non-nil *domain.UserRepository required")
 	}
-	return &UserSvc{Repo: ur, Logger: logger}, nil
+	if logger == nil {
+		return nil, errors.New("non-nil *log.Entry required")
+	}
+	if maxBulkOps < 1 {
+		return nil, errors.New("maxBulkOps must be greater than 0")
+	}
+	return &UserSvc{repo: ur, logger: logger, maxBulkOps: maxBulkOps}, nil
 }
 
-// GetUsers retrieves all Users from mySQL
+// GetUsers retrieves all Users from the database
 func (us *UserSvc) GetUsers() (*domain.Users, *mverr.MVError) {
-	users, err := us.Repo.GetUsers()
+	users, err := us.repo.GetUsers()
 
 	if err != nil {
 		us.logUserError(err)
@@ -52,9 +63,9 @@ func (us *UserSvc) GetUsers() (*domain.Users, *mverr.MVError) {
 	return users, nil
 }
 
-// GetUser retrieves a user from mySQL
+// GetUser retrieves a user from the database
 func (us *UserSvc) GetUser(id int) (*domain.User, *mverr.MVError) {
-	u, err := us.Repo.GetUser(id)
+	u, err := us.repo.GetUser(id)
 
 	if err != nil {
 		us.logUserError(err)
@@ -73,9 +84,9 @@ func (us *UserSvc) GetUser(id int) (*domain.User, *mverr.MVError) {
 	return u, nil
 }
 
-// CreateUser inserts a new User into mySQL
+// CreateUser inserts a new User into the database
 func (us *UserSvc) CreateUser(u domain.User) (id int, err *mverr.MVError) {
-	id, err = us.Repo.CreateUser(u)
+	id, err = us.repo.CreateUser(u)
 	if err != nil {
 		us.logUserError(err)
 		return 0, err
@@ -84,9 +95,39 @@ func (us *UserSvc) CreateUser(u domain.User) (id int, err *mverr.MVError) {
 	return id, err
 }
 
-// UpdateUser updates an existing user in mySQL
+// CreateUsers inserts a group new Users into the database
+func (us *UserSvc) CreateUsers(users domain.Users) (bulkResponse *BulkResponse, err *mverr.MVError) {
+	responses := us.handleRqstMultipleUsers(time.Now(), users, CREATE)
+
+	for _, result := range responses.Results {
+		if result.ErrReason != mverr.NoErrorCode {
+			us.logger.WithFields(log.Fields{
+				logging.ErrorCode:   result.ErrReason,
+				logging.Status:      result.Status,
+				logging.ErrorDetail: fmt.Sprintf("error creating user: Name: %s, email: %s", result.User.Name, result.User.EMail),
+			}).Errorf(result.ErrMsg)
+		}
+	}
+
+	if responses.OverallStatus != StatusCreated {
+		err = &mverr.MVError{
+			ErrCode: mverr.BulkRequestErrorCode,
+			ErrMsg:  mverr.BulkRequestErrorMsg,
+			WrappedErr: fmt.Errorf("part or all of a bulk create request failed, overall request status %s",
+				StatusTypeName[responses.OverallStatus]),
+		}
+		us.logUserError(err)
+		return responses, err
+	}
+
+	us.logger.Debugf("CreateUsers, BulkResponse: %+v", responses)
+
+	return responses, nil
+}
+
+// UpdateUser updates an existing user in the database
 func (us *UserSvc) UpdateUser(user domain.User) *mverr.MVError {
-	err := us.Repo.UpdateUser(user)
+	err := us.repo.UpdateUser(user)
 	if err != nil {
 		us.logUserError(err)
 		return err
@@ -95,9 +136,39 @@ func (us *UserSvc) UpdateUser(user domain.User) *mverr.MVError {
 	return nil
 }
 
-// DeleteUser deletes an existing user from mySQL
+// UpdateUsers updates a group existing Users in the database
+func (us *UserSvc) UpdateUsers(users domain.Users) (bulkResponse *BulkResponse, err *mverr.MVError) {
+	responses := us.handleRqstMultipleUsers(time.Now(), users, UPDATE)
+
+	for _, result := range responses.Results {
+		if result.ErrReason != mverr.NoErrorCode {
+			us.logger.WithFields(log.Fields{
+				logging.ErrorCode:   result.ErrReason,
+				logging.Status:      result.Status,
+				logging.ErrorDetail: fmt.Sprintf("error updating user: Name: %s, email: %s", result.User.Name, result.User.EMail),
+			}).Errorf(result.ErrMsg)
+		}
+	}
+
+	if responses.OverallStatus != StatusOK {
+		err = &mverr.MVError{
+			ErrCode: mverr.BulkRequestErrorCode,
+			ErrMsg:  mverr.BulkRequestErrorMsg,
+			WrappedErr: fmt.Errorf("part or all of a bulk update request failed, overall request status %s",
+				StatusTypeName[responses.OverallStatus]),
+		}
+		us.logUserError(err)
+		return responses, err
+	}
+
+	us.logger.Debugf("UpdateUsers, BulkResponse: %+v", responses)
+
+	return responses, nil
+}
+
+// DeleteUser deletes an existing user from the database
 func (us *UserSvc) DeleteUser(id int) *mverr.MVError {
-	err := us.Repo.DeleteUser(id)
+	err := us.repo.DeleteUser(id)
 	if err != nil {
 		us.logUserError(err)
 		return err
@@ -107,9 +178,52 @@ func (us *UserSvc) DeleteUser(id int) *mverr.MVError {
 }
 
 func (us *UserSvc) logUserError(e *mverr.MVError) {
-	us.Logger.WithFields(log.Fields{
-		logging.ErrorCode:   e.ErrCode,
-		logging.ErrorDetail: e.ErrDetail,
+	us.logger.WithFields(log.Fields{
+		logging.ErrorCode:    e.ErrCode,
+		logging.ErrorDetail:  e.ErrDetail,
+		logging.WrappedError: e.WrappedErr,
 	}).Error(e.ErrMsg)
 
+}
+
+func (us *UserSvc) handleRqstMultipleUsers(start time.Time, users domain.Users, rqstType RqstType) *BulkResponse {
+	us.logger.Debugf("handleRqstMultipleUsers for %s", RqstTypeName[rqstType])
+	bp := NewBulkProcessor(us.maxBulkOps, us.logger)
+	defer bp.Stop()
+
+	br := NewBulkRequest(users, rqstType, us)
+	rqstCompleteC := make(chan Response)
+	numUsers := len(users.Users)
+
+	for i := 0; i < numUsers; i++ {
+		go us.handleConcurrentRqst(br.Requests[i], bp.RequestC, rqstCompleteC)
+	}
+
+	us.logger.Debugf("handleRqstMultipleUsers: Started %d goroutines for RqstType %d", numUsers, rqstType)
+	responses := BulkResponse{}
+	overallStatus := StatusOK
+	if rqstType == CREATE {
+		overallStatus = StatusCreated
+	}
+
+	for i := 0; i < numUsers; i++ {
+		resp := <-rqstCompleteC
+		responses.Results = append(responses.Results, resp)
+		if resp.Status != StatusCreated && resp.Status != StatusOK {
+			overallStatus = StatusConflict
+		}
+	}
+
+	responses.OverallStatus = overallStatus
+	return &responses
+}
+
+func (us *UserSvc) handleConcurrentRqst(rqst Request, rqstC chan Request, rqstCompC chan Response) {
+	// us.logger.Debugf("handleConcurrentRqst: request %+v", rqst)
+	rqstC <- rqst
+	// us.logger.Debug("handleConcurrentRqst: request sent")
+	resp := <-rqst.ResponseC
+	// us.logger.Debugf("handleConcurrentRqst: response %+v received", rqst)
+	rqstCompC <- resp
+	// us.logger.Debug("handleConcurrentRqst: response sent")
 }

@@ -2,39 +2,87 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package users
+package services
 
 import (
 	"fmt"
-	"net/http"
 
-	"github.com/youngkin/mockvideo/cmd/accountd/services"
+	log "github.com/sirupsen/logrus"
 	"github.com/youngkin/mockvideo/internal/domain"
 	"github.com/youngkin/mockvideo/internal/errors"
 )
 
+// RqstType is used to indicate what kind of request is being made
+type RqstType int
+
+const (
+	// CREATE indicates that a User is to be created
+	CREATE RqstType = iota
+	// UPDATE indicates that a User is to be updated
+	UPDATE
+	// READ indicates a User is to be retrieved
+	READ
+	// DELETE indicates a User is to be deleted
+	DELETE
+)
+
+// RqstTypeName maps a specific RqstType value to a descriptive string
+var RqstTypeName = map[RqstType]string{
+	CREATE: "CREATE",
+	UPDATE: "UPDATE",
+	READ:   "READ",
+	DELETE: "DELETE",
+}
+
+// Status indicates the result of a bulk operation
+type Status int
+
+const (
+	// StatusBadRequest indicates that the client submitted an invalid request
+	StatusBadRequest Status = iota
+	// StatusOK indicates the request completed successfully
+	StatusOK
+	// StatusCreated indicates that the requested resource was created
+	StatusCreated
+	// StatusConflict indicates that one or more of a set of bulk requests failed
+	StatusConflict
+	// StatusServerError indicates that the server encountered an error while servicing the request
+	StatusServerError
+	// StatusNotFound indicates the requested resource does not exist
+	StatusNotFound
+)
+
+// StatusTypeName maps a specific Status value to a descriptive string
+var StatusTypeName = map[Status]string{
+	StatusBadRequest:  "StatusBadRequest",
+	StatusOK:          "StatusOK",
+	StatusCreated:     "StatusCreated",
+	StatusConflict:    "StatusConflict",
+	StatusServerError: "StatusServerError",
+	StatusNotFound:    "StatusNotFound",
+}
+
 // Response contains the results of in individual User request
 type Response struct {
-	HTTPStatus int            `json:"httpstatus"`
-	ErrMsg     string         `json:"errmsg"`
-	ErrReason  errors.ErrCode `json:"-"`
-	User       domain.User    `json:"user,omitempty"`
+	Status    Status         `json:"status"`
+	ErrMsg    string         `json:"errmsg"`
+	ErrReason errors.ErrCode `json:"-"`
+	User      domain.User    `json:"user,omitempty"`
 }
 
 // BulkResponse contains the results of in bulk  User request
 type BulkResponse struct {
-	OverallStatus int        `json:"overallstatus"`
+	OverallStatus Status     `json:"overallstatus"`
 	Results       []Response `json:"results"`
 }
 
 // Request contains the information needed to process a request as well
 // as capture to result of processing that request.
 type Request struct {
-	userSvc   services.UserSvcInterface
-	handler   handler
+	userSvc   UserSvcInterface
 	ResponseC chan Response
 	user      domain.User
-	method    string
+	rqstType  RqstType
 }
 
 // BulkRequest contains a set of requests to be processed and the single channel to listen to for results
@@ -46,7 +94,7 @@ type BulkRequest struct {
 // NewBulkRequest returns a Request. This is the only way to create a valid Request. The
 // returned request contains a channel to listen on for concurrent request completion,
 // and the individual user instances that are the target of the operation.
-func NewBulkRequest(users domain.Users, method string, userSvc services.UserSvcInterface) BulkRequest {
+func NewBulkRequest(users domain.Users, rqstType RqstType, userSvc UserSvcInterface) BulkRequest {
 	// responseC must be a buffered channel of at least 1. This is required to handle a
 	// potential race condition that occurs when the client 'Stop()'s a BulkPost while
 	// one or more requests are being actively processed but not yet handled by the client.
@@ -58,7 +106,7 @@ func NewBulkRequest(users domain.Users, method string, userSvc services.UserSvcI
 			userSvc:   userSvc,
 			ResponseC: responseC,
 			user:      *u,
-			method:    method,
+			rqstType:  rqstType,
 		}
 		requests = append(requests, rqst)
 	}
@@ -75,15 +123,17 @@ type BulkProcesor struct {
 	// a message from the channel. These operations should surround any calls requiring
 	// resources (i.e., processing Request-s on 'RequestC'.
 	limitRqstsC chan struct{}
+	logger      *log.Entry
 }
 
 // NewBulkProcessor returns a BulkProcessor which will support bulk user operations with a
 // maximum number of concurrent requests limited by concurrencyLimit
-func NewBulkProcessor(concurrencyLimit int) *BulkProcesor {
+func NewBulkProcessor(concurrencyLimit int, logger *log.Entry) *BulkProcesor {
 	bp := BulkProcesor{
 		RequestC:    make(chan Request, concurrencyLimit),
 		close:       make(chan struct{}),
 		limitRqstsC: make(chan struct{}, concurrencyLimit),
+		logger:      logger,
 	}
 	go bp.loop()
 	return &bp
@@ -120,45 +170,46 @@ func (bp BulkProcesor) process(rqst Request) {
 
 	r := Response{}
 
-	switch rqst.method {
-	case http.MethodPost:
-		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
-		_, err := rqst.userSvc.CreateUser(rqst.user)
+	switch rqst.rqstType {
+	case CREATE:
+		bp.logger.Debugf("BulkProcessor processing CREATE request: %+v", rqst)
+		id, err := rqst.userSvc.CreateUser(rqst.user)
 		if err != nil {
 			r = Response{
-				ErrMsg:     err.ErrMsg,
-				ErrReason:  err.ErrCode,
-				HTTPStatus: http.StatusBadRequest,
-				User:       rqst.user,
+				ErrMsg:    err.ErrMsg,
+				ErrReason: err.ErrCode,
+				Status:    StatusBadRequest,
+				User:      rqst.user,
 			}
 		} else {
-			r.HTTPStatus = http.StatusCreated
+			r.Status = StatusCreated
 			r.User = rqst.user
+			r.User.ID = id
 		}
-	case http.MethodPut:
-		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor processing POST request: %v+", rqst)
+	case UPDATE:
+		bp.logger.Debugf("BulkProcessor processing UPDATE request: %+v", rqst)
 		err := rqst.userSvc.UpdateUser(rqst.user)
 		if err != nil {
 			r = Response{
-				ErrMsg:     err.ErrMsg,
-				ErrReason:  err.ErrCode,
-				HTTPStatus: http.StatusBadRequest,
-				User:       rqst.user,
+				ErrMsg:    err.ErrMsg,
+				ErrReason: err.ErrCode,
+				Status:    StatusBadRequest,
+				User:      rqst.user,
 			}
 		} else {
-			r.HTTPStatus = http.StatusOK
+			r.Status = StatusOK
 			r.User = rqst.user
 		}
 	default:
-		// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor received unsupported HTTP method request: %v+", rqst)
+		bp.logger.Debugf("BulkProcessor received unsupported request type: %+v", rqst)
 		r = Response{
-			ErrMsg:     fmt.Sprintf("Bulk %s HTTP method not supported", rqst.method),
-			ErrReason:  errors.UserRqstErrorCode,
-			HTTPStatus: http.StatusBadRequest,
-			User:       rqst.user,
+			ErrMsg:    fmt.Sprintf("Bulk RequestType %s not supported", RqstTypeName[rqst.rqstType]),
+			ErrReason: errors.UserRqstErrorCode,
+			Status:    StatusBadRequest,
+			User:      rqst.user,
 		}
 	}
 
 	rqst.ResponseC <- r
-	// TODO: FIX rqst.userSvc.logger.Debugf("BulkProcessor.process sent response: %v+", r)
+	bp.logger.Debugf("BulkProcessor.process sent response: %+v", r)
 }
