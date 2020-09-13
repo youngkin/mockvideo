@@ -34,7 +34,7 @@ import (
 	//"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/cmd/accountd/services"
+	"github.com/youngkin/mockvideo/cmd/accountd/internal/services"
 	"github.com/youngkin/mockvideo/internal/domain"
 	mverr "github.com/youngkin/mockvideo/internal/errors"
 	"github.com/youngkin/mockvideo/internal/logging"

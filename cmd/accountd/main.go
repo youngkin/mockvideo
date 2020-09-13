@@ -26,12 +26,11 @@ import (
 	handlers "github.com/youngkin/mockvideo/cmd/accountd/http"
 	"github.com/youngkin/mockvideo/cmd/accountd/http/users"
 	"github.com/youngkin/mockvideo/cmd/accountd/internal/config"
-	"github.com/youngkin/mockvideo/cmd/accountd/services"
+	"github.com/youngkin/mockvideo/cmd/accountd/internal/services"
 	"github.com/youngkin/mockvideo/internal/db"
 	userdb "github.com/youngkin/mockvideo/internal/db"
 	mverr "github.com/youngkin/mockvideo/internal/errors"
 	"github.com/youngkin/mockvideo/internal/logging"
-	pb "github.com/youngkin/mockvideo/pkg/accountd"
 	"google.golang.org/grpc"
 
 	log "github.com/sirupsen/logrus"
@@ -390,7 +389,7 @@ func startGRPCServer(userSvc *services.UserSvc, logger *log.Entry, maxBulkOps in
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterUserServerServer(s, usersServer)
+	grpcuser.RegisterUserServerServer(s, usersServer)
 
 	go func() {
 		defer conn.Close()

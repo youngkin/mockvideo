@@ -26,7 +26,7 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/cmd/accountd/services"
+	"github.com/youngkin/mockvideo/cmd/accountd/internal/services"
 	"github.com/youngkin/mockvideo/internal/db"
 	"github.com/youngkin/mockvideo/internal/db/tests"
 	"github.com/youngkin/mockvideo/internal/domain"

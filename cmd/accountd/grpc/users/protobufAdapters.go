@@ -7,26 +7,25 @@ package users
 import (
 	"fmt"
 
-	"github.com/youngkin/mockvideo/cmd/accountd/services"
+	"github.com/youngkin/mockvideo/cmd/accountd/internal/services"
 	"github.com/youngkin/mockvideo/internal/domain"
-	pb "github.com/youngkin/mockvideo/pkg/accountd"
 )
 
 // DomainUserToProtobuf converts a User domain object into a protobuf User
-func DomainUserToProtobuf(u *domain.User) *pb.User {
-	return &pb.User{
+func DomainUserToProtobuf(u *domain.User) *User {
+	return &User{
 		AccountID: int64(u.AccountID),
 		HREF:      u.HREF,
 		ID:        int64(u.ID),
 		Name:      u.Name,
 		EMail:     u.EMail,
-		Role:      pb.RoleEnum(u.Role),
+		Role:      RoleEnum(u.Role),
 	}
 }
 
 // DomainUsersToProtobuf converts a Users domain object into a protobuf Users
-func DomainUsersToProtobuf(us *domain.Users) *pb.Users {
-	pbUsers := pb.Users{}
+func DomainUsersToProtobuf(us *domain.Users) *Users {
+	pbUsers := Users{}
 
 	for _, u := range us.Users {
 		ub := DomainUserToProtobuf(u)
@@ -35,8 +34,8 @@ func DomainUsersToProtobuf(us *domain.Users) *pb.Users {
 	return &pbUsers
 }
 
-// ProtobufToUser converts a pb.User to a domwin.User
-func ProtobufToUser(ub *pb.User) (*domain.User, error) {
+// ProtobufToUser converts a User to a domwin.User
+func ProtobufToUser(ub *User) (*domain.User, error) {
 	u := &domain.User{
 		AccountID: int(ub.AccountID),
 		HREF:      ub.HREF,
@@ -51,8 +50,8 @@ func ProtobufToUser(ub *pb.User) (*domain.User, error) {
 	return u, err
 }
 
-// ProtobufToUsers converts a pb.Users to a domain.User
-func ProtobufToUsers(users *pb.Users) (*domain.Users, error) {
+// ProtobufToUsers converts a Users to a domain.User
+func ProtobufToUsers(users *Users) (*domain.Users, error) {
 	dUsers := domain.Users{}
 	dUsers.Users = []*domain.User{}
 	for _, u := range users.Users {
@@ -66,22 +65,22 @@ func ProtobufToUsers(users *pb.Users) (*domain.Users, error) {
 	return &dUsers, nil
 }
 
-func statusToPBStatus(status services.Status) pb.StatusEnum {
-	var pbStatus pb.StatusEnum
+func statusToPBStatus(status services.Status) StatusEnum {
+	var pbStatus StatusEnum
 
 	switch status {
 	case services.StatusBadRequest:
-		pbStatus = pb.StatusEnum_StatusBadRequest
+		pbStatus = StatusEnum_StatusBadRequest
 	case services.StatusCreated:
-		pbStatus = pb.StatusEnum_StatusCreated
+		pbStatus = StatusEnum_StatusCreated
 	case services.StatusNotFound:
-		pbStatus = pb.StatusEnum_StatusNotFound
+		pbStatus = StatusEnum_StatusNotFound
 	case services.StatusOK:
-		pbStatus = pb.StatusEnum_StatusOK
+		pbStatus = StatusEnum_StatusOK
 	case services.StatusServerError:
-		pbStatus = pb.StatusEnum_StatusServerError
+		pbStatus = StatusEnum_StatusServerError
 	default:
-		pbStatus = pb.StatusEnum_StatusServerError
+		pbStatus = StatusEnum_StatusServerError
 	}
 
 	return pbStatus

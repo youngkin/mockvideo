@@ -13,10 +13,9 @@ import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
-	"github.com/youngkin/mockvideo/cmd/accountd/services"
+	"github.com/youngkin/mockvideo/cmd/accountd/internal/services"
 	mverr "github.com/youngkin/mockvideo/internal/errors"
 	"github.com/youngkin/mockvideo/internal/logging"
-	pb "github.com/youngkin/mockvideo/pkg/accountd"
 )
 
 const rqstStatus = "rqstStatus"
@@ -38,7 +37,7 @@ type UserServer struct {
 }
 
 // GetUser returns the User identified by GetUserRqst.Id
-func (s *UserServer) GetUser(ctx context.Context, rqst *pb.UserID) (*pb.User, error) {
+func (s *UserServer) GetUser(ctx context.Context, rqst *UserID) (*User, error) {
 	start := time.Now()
 
 	s.logger.WithFields(log.Fields{
@@ -65,7 +64,7 @@ func (s *UserServer) GetUser(ctx context.Context, rqst *pb.UserID) (*pb.User, er
 }
 
 // GetUsers returns all known users
-func (s *UserServer) GetUsers(ctx context.Context, x *empty.Empty) (*pb.Users, error) {
+func (s *UserServer) GetUsers(ctx context.Context, x *empty.Empty) (*Users, error) {
 	start := time.Now()
 
 	s.logger.WithFields(log.Fields{
@@ -86,7 +85,7 @@ func (s *UserServer) GetUsers(ctx context.Context, x *empty.Empty) (*pb.Users, e
 }
 
 // CreateUser creates a new User
-func (s *UserServer) CreateUser(ctx context.Context, u *pb.User) (*pb.UserID, error) {
+func (s *UserServer) CreateUser(ctx context.Context, u *User) (*UserID, error) {
 	start := time.Now()
 
 	s.logger.WithFields(log.Fields{
@@ -115,7 +114,7 @@ func (s *UserServer) CreateUser(ctx context.Context, u *pb.User) (*pb.UserID, er
 		return nil, fmt.Errorf("Error received creating a new user. Wrapped error: %s", mvErr)
 	}
 
-	userIDPB := pb.UserID{Id: int64(id)}
+	userIDPB := UserID{Id: int64(id)}
 
 	UserRqstDur.WithLabelValues(services.StatusTypeName[services.StatusCreated]).Observe(float64(time.Since(start)) / float64(time.Second))
 
@@ -123,7 +122,7 @@ func (s *UserServer) CreateUser(ctx context.Context, u *pb.User) (*pb.UserID, er
 }
 
 // CreateUsers creates users from the provided 'users' parameter
-func (s *UserServer) CreateUsers(ctx context.Context, users *pb.Users) (*pb.BulkResponse, error) {
+func (s *UserServer) CreateUsers(ctx context.Context, users *Users) (*BulkResponse, error) {
 	start := time.Now()
 
 	s.logger.WithFields(log.Fields{
@@ -143,13 +142,13 @@ func (s *UserServer) CreateUsers(ctx context.Context, users *pb.Users) (*pb.Bulk
 
 	responses, mvErr := s.userSvc.CreateUsers(*du)
 
-	bulkResponse := pb.BulkResponse{OverallStatus: statusToPBStatus(responses.OverallStatus)}
+	bulkResponse := BulkResponse{OverallStatus: statusToPBStatus(responses.OverallStatus)}
 	for _, result := range responses.Results {
-		response := pb.Response{
+		response := Response{
 			Status:    statusToPBStatus(result.Status),
 			ErrMsg:    result.ErrMsg,
 			ErrReason: int64(result.ErrReason),
-			UserID: &pb.UserID{
+			UserID: &UserID{
 				Id: int64(result.User.ID),
 			},
 		}
@@ -163,13 +162,13 @@ func (s *UserServer) CreateUsers(ctx context.Context, users *pb.Users) (*pb.Bulk
 
 	UserRqstDur.WithLabelValues(services.StatusTypeName[responses.OverallStatus]).Observe(float64(time.Since(start)) / float64(time.Second))
 
-	s.logger.Debugf("CreateUsers: pb.BulkResponse: %+v", &bulkResponse)
+	s.logger.Debugf("CreateUsers: BulkResponse: %+v", &bulkResponse)
 
 	return &bulkResponse, retErr
 }
 
 // UpdateUsers updates the set of users provided in the 'users' parameter
-func (s *UserServer) UpdateUsers(ctx context.Context, users *pb.Users) (*pb.BulkResponse, error) {
+func (s *UserServer) UpdateUsers(ctx context.Context, users *Users) (*BulkResponse, error) {
 	start := time.Now()
 
 	s.logger.WithFields(log.Fields{
@@ -189,13 +188,13 @@ func (s *UserServer) UpdateUsers(ctx context.Context, users *pb.Users) (*pb.Bulk
 
 	responses, mvErr := s.userSvc.UpdateUsers(*du)
 
-	bulkResponse := pb.BulkResponse{OverallStatus: statusToPBStatus(responses.OverallStatus)}
+	bulkResponse := BulkResponse{OverallStatus: statusToPBStatus(responses.OverallStatus)}
 	for _, result := range responses.Results {
-		response := pb.Response{
+		response := Response{
 			Status:    statusToPBStatus(result.Status),
 			ErrMsg:    result.ErrMsg,
 			ErrReason: int64(result.ErrReason),
-			UserID: &pb.UserID{
+			UserID: &UserID{
 				Id: int64(result.User.ID),
 			},
 		}
@@ -209,13 +208,13 @@ func (s *UserServer) UpdateUsers(ctx context.Context, users *pb.Users) (*pb.Bulk
 
 	UserRqstDur.WithLabelValues(services.StatusTypeName[responses.OverallStatus]).Observe(float64(time.Since(start)) / float64(time.Second))
 
-	s.logger.Debugf("UpdateUsers: pb.BulkResponse: %+v", &bulkResponse)
+	s.logger.Debugf("UpdateUsers: BulkResponse: %+v", &bulkResponse)
 
 	return &bulkResponse, retErr
 }
 
 // UpdateUser updates an existing user
-func (s *UserServer) UpdateUser(ctx context.Context, u *pb.User) (*empty.Empty, error) {
+func (s *UserServer) UpdateUser(ctx context.Context, u *User) (*empty.Empty, error) {
 	start := time.Now()
 
 	s.logger.WithFields(log.Fields{
@@ -246,7 +245,7 @@ func (s *UserServer) UpdateUser(ctx context.Context, u *pb.User) (*empty.Empty, 
 }
 
 // DeleteUser updates an existing user
-func (s *UserServer) DeleteUser(ctx context.Context, id *pb.UserID) (*empty.Empty, error) {
+func (s *UserServer) DeleteUser(ctx context.Context, id *UserID) (*empty.Empty, error) {
 	start := time.Now()
 
 	s.logger.WithFields(log.Fields{
@@ -265,14 +264,14 @@ func (s *UserServer) DeleteUser(ctx context.Context, id *pb.UserID) (*empty.Empt
 }
 
 // Health is used to determine the status or health of the service
-func (s *UserServer) Health(ctx context.Context, _ *empty.Empty) (*pb.HealthMsg, error) {
-	return &pb.HealthMsg{
+func (s *UserServer) Health(ctx context.Context, _ *empty.Empty) (*HealthMsg, error) {
+	return &HealthMsg{
 		Status: "gRPC User Service is healthy",
 	}, nil
 }
 
 // NewUserServer returns a properly configured grpc Server
-func NewUserServer(userSvc services.UserSvcInterface, logger *log.Entry) (pb.UserServerServer, error) {
+func NewUserServer(userSvc services.UserSvcInterface, logger *log.Entry) (UserServerServer, error) {
 	if logger == nil {
 		return nil, errors.New("non-nil log.Entry  required")
 	}

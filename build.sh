@@ -8,6 +8,7 @@ pre() {
 
 build() {
     pre
+    genProtobuf
     cd cmd/accountd
     go build
     cd -
@@ -16,20 +17,27 @@ build() {
 buildARM() {
     pre
     cd cmd/accountd
+    genProtobuf
     /usr/bin/env GOOS=linux GOARCH=arm GOARM=7 go build
     cd -
 }
 
 dockerBuild() {
     buildARM
+    genProtobuf
     cd cmd/accountd
     docker build -t local/accountd .
     cd -
 }
 
+genProtobuf() {
+    protoc --go_out=plugins=grpc:. ./pkg/protobuf/accountd/user_service.proto
+}
+
 test() {
     pre
-    go test -race ./... -count=1
+    genProtobuf
+   go test -race ./... -count=1
 }
 
 allLocal() {
@@ -46,6 +54,9 @@ allARM() {
 if [ $1 = "pre" ] 
 then
     pre
+elif [ $1 = "protobuf" ] 
+then
+    genProtobuf
 elif [ $1 = "build" ] 
 then
     build
